@@ -968,7 +968,7 @@ class Photobooth:
                     else:
                         logging.debug("Printer error: unbekannt")
     
-                if printerstate.get("printer-state-message") is "":
+                if printerstate.get("printer-state-message") == "":
                     logging.debug("printer-state-message = /")
                     break
                 stop += 1
