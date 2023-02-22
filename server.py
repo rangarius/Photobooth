@@ -25,11 +25,11 @@ class WebServer(Flask):
 
    def setup_photobooth(self, photobooth):
       self.photobooth = photobooth
-      self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
-      path = app.photobooth.CardConfigFile
-      self.configParser = TemplateParser(path)
-      # app.config[‘MAX_CONTENT_PATH’] = 
-      self.configParser.readCardConfiguration()
+      # self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
+      # path = app.photobooth.CardConfigFile
+      # self.configParser = TemplateParser(path)
+      # # app.config[‘MAX_CONTENT_PATH’] = 
+      # self.configParser.readCardConfiguration()
 
 app = WebServer(__name__)
 CORS(app)
