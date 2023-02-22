@@ -22,6 +22,7 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class WebServer(Flask): 
    photobooth = None
+   cardConfig = None
 
 app = WebServer(__name__)
 CORS(app)
@@ -38,8 +39,8 @@ except FileNotFoundError:
       secret_file.write(app.secret_key)
       app.config['SECRET_KEY'] = app.secret_key
 
-app.config['UPLOAD_FOLDER'] = os.path.dirname(app.photobooth.CardConfigFile)
-path = app.photobooth.CardConfigFile
+app.config['UPLOAD_FOLDER'] = os.path.dirname(app.CardConfigFile)
+path = app.CardConfigFile
 configParser = TemplateParser(path)
 
 
