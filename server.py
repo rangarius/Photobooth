@@ -10,7 +10,7 @@ import secrets
 from pathlib import Path
 from flask_cors import CORS
 import base64
-from photobooth import main
+from photobooth import main as photobooth
         
 
 
@@ -33,7 +33,7 @@ class WebServer(Flask):
       self.configParser = TemplateParser(path)
       # app.config[‘MAX_CONTENT_PATH’] = 
       self.configParser.readCardConfiguration()
-      main()
+      photobooth()
 
 app = WebServer(__name__)
 CORS(app)
