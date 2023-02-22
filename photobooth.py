@@ -724,7 +724,7 @@ class Photobooth:
     def on_enter_PowerOn(self):
         logging.debug("now on_enter_PowerOn")
         from server import app
-        app.setup_photobooth(self)
+        app.setup_photobooth(self.CardConfigFile)
         app.run("0.0.0.0", 4010, debug = True)
         self.overlay_screen_turnOnPrinter = -1
 

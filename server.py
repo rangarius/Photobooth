@@ -21,15 +21,16 @@ class ConfigEncoder(JSONEncoder):
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class WebServer(Flask): 
-   photobooth = None
+   config_path = None
 
-   def setup_photobooth(self, photobooth):
-      self.photobooth = photobooth
-      # self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
-      # path = app.photobooth.CardConfigFile
-      # self.configParser = TemplateParser(path)
-      # # app.config[‘MAX_CONTENT_PATH’] = 
-      # self.configParser.readCardConfiguration()
+   def setup_photobooth(self, config_path):
+      #self.photobooth = photobooth
+      self.config_path = config_path
+      self.config['UPLOAD_FOLDER'] = os.path.dirname(self.config_path)
+      path = config_path
+      self.configParser = TemplateParser(path)
+      # app.config[‘MAX_CONTENT_PATH’] = 
+      self.configParser.readCardConfiguration()
 
 app = WebServer(__name__)
 CORS(app)
