@@ -23,7 +23,8 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class WebServer(Flask): 
    photobooth = None
-
+   configParser = None
+   
    def setup_photobooth(self, photobooth) -> bool:
       #self.photobooth = photobooth
       self.photobooth= photobooth
