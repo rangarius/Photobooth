@@ -11,7 +11,6 @@ from pathlib import Path
 from flask_cors import CORS
 import base64
 from photobooth import main as photobooth
-import threading
         
 
 
@@ -24,13 +23,13 @@ class ConfigEncoder(JSONEncoder):
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class WebServer(Flask): 
-   config_path = None
+   photobooth = None
 
    def setup_photobooth(self, config_path) -> bool:
       #self.photobooth = photobooth
-      self.config_path = os.path.join(REAL_PATH, "uploads")
-      self.config['UPLOAD_FOLDER'] = os.path.dirname(self.config_path)
-      path = os.path.join(REAL_PATH, "uploads")
+      self.photobooth= photobooth
+      self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
+      path = self.photobooth.CardConfigFile
       self.configParser = TemplateParser(path)
       # app.config[‘MAX_CONTENT_PATH’] = 
       self.configParser.readCardConfiguration()
@@ -81,24 +80,3 @@ def edit_layout(id):
 def download_file(name):
     return send_from_directory(app.config["UPLOAD_FOLDER"], name)
 
-def main():
-        app.setup_photobooth("test")
-        app.run("0.0.0.0", 4010, debug = False)
-
-if __name__ == "__main__":
-    try:
-      t1 = threading.Thread(target=main, args=[])
-      t2 = threading.Thread(target=photobooth, args=[])
-      t1.start()
-      t2.start()
-
-
-    except KeyboardInterrupt:
-        logging.debug("keyboard interrupt")
-
-    except Exception as exception:
-        logging.critical("unexpected error: " + str(exception))
-        logging.exception(exception)
-
-    finally:
-        logging.debug("logfile closed")
