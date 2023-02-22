@@ -10,6 +10,8 @@ import secrets
 from pathlib import Path
 from flask_cors import CORS
 import base64
+from photobooth import main
+        
 
 
 
@@ -25,12 +27,13 @@ class WebServer(Flask):
 
    def setup_photobooth(self, config_path):
       #self.photobooth = photobooth
-      self.config_path = config_path
+      self.config_path = os.path.join(REAL_PATH, "uploads")
       self.config['UPLOAD_FOLDER'] = os.path.dirname(self.config_path)
-      path = config_path
+      path = os.path.join(REAL_PATH, "uploads")
       self.configParser = TemplateParser(path)
       # app.config[‘MAX_CONTENT_PATH’] = 
       self.configParser.readCardConfiguration()
+      main()
 
 app = WebServer(__name__)
 CORS(app)
@@ -46,7 +49,6 @@ except FileNotFoundError:
       app.secret_key = secrets.token_hex(32)
       secret_file.write(app.secret_key)
       app.config['SECRET_KEY'] = app.secret_key
-
 
 
 
@@ -79,3 +81,19 @@ def edit_layout(id):
 def download_file(name):
     return send_from_directory(app.config["UPLOAD_FOLDER"], name)
 
+
+
+if __name__ == "__main__":
+    try:
+
+        app.run("0.0.0.0", 4010, debug = False)
+
+    except KeyboardInterrupt:
+        logging.debug("keyboard interrupt")
+
+    except Exception as exception:
+        logging.critical("unexpected error: " + str(exception))
+        logging.exception(exception)
+
+    finally:
+        logging.debug("logfile closed")

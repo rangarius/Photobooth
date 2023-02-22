@@ -723,9 +723,6 @@ class Photobooth:
     # check if printer is connected and turned on
     def on_enter_PowerOn(self):
         logging.debug("now on_enter_PowerOn")
-        from server import app
-        app.setup_photobooth(self.CardConfigFile)
-        app.run("0.0.0.0", 4010, debug = False)
         self.overlay_screen_turnOnPrinter = -1
 
         if not self.CheckPrinter():
@@ -1219,16 +1216,16 @@ def main():
         #photobooth.__del__()
 
 
-if __name__ == "__main__":
-    try:
-        main()
+# if __name__ == "__main__":
+#     try:
+#         main()
 
-    except KeyboardInterrupt:
-        logging.debug("keyboard interrupt")
+#     except KeyboardInterrupt:
+#         logging.debug("keyboard interrupt")
 
-    except Exception as exception:
-        logging.critical("unexpected error: " + str(exception))
-        logging.exception(exception)
+#     except Exception as exception:
+#         logging.critical("unexpected error: " + str(exception))
+#         logging.exception(exception)
 
-    finally:
-        logging.debug("logfile closed")
+#     finally:
+#         logging.debug("logfile closed")
