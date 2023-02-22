@@ -22,7 +22,7 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class WebServer(Flask): 
    photobooth = None
-   cardConfig = None
+   cardConfigFile = None
 
 app = WebServer(__name__)
 CORS(app)
