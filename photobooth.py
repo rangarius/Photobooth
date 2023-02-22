@@ -3,7 +3,6 @@
 import os
 import pyudev
 import psutil
-from server import app
 from PIL import Image  # image manipulation for Overlay
 import time  # timing
 import picamera  # camera driver
@@ -1208,6 +1207,7 @@ def main():
         logging.debug("Starting Photobooth")
 
         photobooth = Photobooth()
+        from server import app
         app.photobooth = photobooth
         app.run("0.0.0.0", 4010, debug = True)
 
