@@ -10,7 +10,6 @@ import secrets
 from pathlib import Path
 from flask_cors import CORS
 import base64
-from photobooth import main as photobooth
         
 
 
@@ -25,7 +24,7 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 class WebServer(Flask): 
    photobooth = None
 
-   def setup_photobooth(self, config_path) -> bool:
+   def setup_photobooth(self, photobooth) -> bool:
       #self.photobooth = photobooth
       self.photobooth= photobooth
       self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
