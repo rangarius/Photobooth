@@ -25,7 +25,7 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 class WebServer(Flask): 
    config_path = None
 
-   def setup_photobooth(self, config_path):
+   def setup_photobooth(self, config_path) -> bool:
       #self.photobooth = photobooth
       self.config_path = os.path.join(REAL_PATH, "uploads")
       self.config['UPLOAD_FOLDER'] = os.path.dirname(self.config_path)
@@ -34,6 +34,7 @@ class WebServer(Flask):
       # app.config[‘MAX_CONTENT_PATH’] = 
       self.configParser.readCardConfiguration()
       photobooth()
+      return True
 
 app = WebServer(__name__)
 CORS(app)
@@ -85,7 +86,7 @@ def download_file(name):
 
 if __name__ == "__main__":
     try:
-
+        app.setup_photobooth("test")
         app.run("0.0.0.0", 4010, debug = False)
 
     except KeyboardInterrupt:
