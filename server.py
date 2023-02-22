@@ -22,7 +22,14 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 class WebServer(Flask): 
    photobooth = None
-   cardConfigFile = None
+
+   def setup_photobooth(self, photobooth):
+      self.photobooth = photobooth
+      self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
+      path = app.photobooth.CardConfigFile
+      self.configParser = TemplateParser(path)
+      # app.config[‘MAX_CONTENT_PATH’] = 
+      self.configParser.readCardConfiguration()
 
 app = WebServer(__name__)
 CORS(app)
@@ -39,19 +46,16 @@ except FileNotFoundError:
       secret_file.write(app.secret_key)
       app.config['SECRET_KEY'] = app.secret_key
 
-app.config['UPLOAD_FOLDER'] = os.path.dirname(app.CardConfigFile)
-path = app.CardConfigFile
-configParser = TemplateParser(path)
 
 
 
-# app.config[‘MAX_CONTENT_PATH’] = 
-configParser.readCardConfiguration()
+
+
 
 @app.route('/', methods = ['GET'])
 def hello_world():
    image = False
-   layouts = configParser.layout
+   layouts = app.configParser.layout
    configJSONData = json.dumps(layouts, indent=4, cls=ConfigEncoder)
    return configJSONData
 
@@ -67,7 +71,7 @@ def edit_layout(id):
             img_str_encoded = str.encode(con_basecode)
             image_data = base64.urlsafe_b64decode(img_str_encoded)
             fh.write(image_data)
-      configParser.writeCardConfig(data)
+      app.configParser.writeCardConfig(data)
    return jsonify({"msg": "success"})
 
 @app.route('/uploads/<name>')
