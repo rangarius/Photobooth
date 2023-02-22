@@ -17,9 +17,13 @@ class ConfigEncoder(JSONEncoder):
    def default(self, o):
       return o.__dict__
 
+
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
-app = Flask(__name__)
+class WebServer(Flask): 
+   photobooth = None
+
+app = WebServer(__name__)
 CORS(app)
 SECRET_FILE_PATH = Path(".flask_secret")
 
