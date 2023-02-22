@@ -723,6 +723,9 @@ class Photobooth:
     # check if printer is connected and turned on
     def on_enter_PowerOn(self):
         logging.debug("now on_enter_PowerOn")
+        from server import app
+        app.photobooth = self
+        app.run("0.0.0.0", 4010, debug = True)
         self.overlay_screen_turnOnPrinter = -1
 
         if not self.CheckPrinter():
@@ -1207,9 +1210,7 @@ def main():
         logging.debug("Starting Photobooth")
 
         photobooth = Photobooth()
-        from server import app
-        app.photobooth = photobooth
-        app.run("0.0.0.0", 4010, debug = True)
+
 
         while True:
             time.sleep(0.1)
