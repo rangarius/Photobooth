@@ -17,6 +17,8 @@ import cups  # connection to cups printer driver
 import usb  # check if printer is connected and turned on
 from wand.image import Image as image  # image manipulation lib
 import threading
+from server import app
+
 
 # get the real path of the script
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -1207,7 +1209,8 @@ def main():
 
         logging.debug("Starting Photobooth")
 
-        photobooth = Photobooth()
+        app.setup_photobooth(Photobooth())
+
 
 
         while True:
@@ -1218,17 +1221,15 @@ def main():
 
 
 def start_webserver():
-    from server import app
-    app.setup_photobooth(Photobooth())
     app.run("0.0.0.0", 4010, debug = False)
 
 if __name__ == "__main__":
     try:
       #t1 = threading.Thread(target=main, args=[])
       logging.debug("keyboard interruptsdfsdf")
-
+      t1 = threading.Thread(target=main, args=[])
       t2 = threading.Thread(target=start_webserver, args=[])
-      #t1.start()
+      t1.start()
       t2.start()
 
 
