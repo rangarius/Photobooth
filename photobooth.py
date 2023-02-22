@@ -1228,6 +1228,7 @@ if __name__ == "__main__":
 
     except Exception as exception:
         logging.critical("unexpected error: " + str(exception))
+        logging.exception(exception)
 
     finally:
         logging.debug("logfile closed")
