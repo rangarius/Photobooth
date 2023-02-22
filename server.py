@@ -11,6 +11,7 @@ from pathlib import Path
 from flask_cors import CORS
 import base64
 from photobooth import main as photobooth
+import threading
         
 
 
@@ -33,8 +34,6 @@ class WebServer(Flask):
       self.configParser = TemplateParser(path)
       # app.config[‘MAX_CONTENT_PATH’] = 
       self.configParser.readCardConfiguration()
-      photobooth()
-      return True
 
 app = WebServer(__name__)
 CORS(app)
@@ -82,12 +81,17 @@ def edit_layout(id):
 def download_file(name):
     return send_from_directory(app.config["UPLOAD_FOLDER"], name)
 
-
+def main():
+        app.setup_photobooth("test")
+        app.run("0.0.0.0", 4010, debug = False)
 
 if __name__ == "__main__":
     try:
-        app.setup_photobooth("test")
-        app.run("0.0.0.0", 4010, debug = False)
+      t1 = threading.Thread(target=main, args=[])
+      t2 = threading.Thread(target=photobooth, args=[])
+      t1.start()
+      t2.start()
+
 
     except KeyboardInterrupt:
         logging.debug("keyboard interrupt")
