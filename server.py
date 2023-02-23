@@ -24,7 +24,7 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 class WebServer(Flask): 
    photobooth = None
    configParser = None
-   
+
    def setup_photobooth(self, photobooth) -> bool:
       #self.photobooth = photobooth
       self.photobooth= photobooth
@@ -33,6 +33,8 @@ class WebServer(Flask):
       self.configParser = TemplateParser(path)
       # app.config[‘MAX_CONTENT_PATH’] = 
       self.configParser.readCardConfiguration()
+      logging.debug(self.configParser)
+      logging.debug(self.photobooth)
 
 app = WebServer(__name__)
 CORS(app)
