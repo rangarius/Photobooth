@@ -722,12 +722,19 @@ class Photobooth:
         self.camera.capture(self.lastfilename)
         logging.debug("Photo (" + str(photo_number) + ") saved: " + self.lastfilename)
 
+    def start_webserver(self): 
+        app.setup_photobooth(self, logging)
+        app.run("0.0.0.0", 4010, debug = False)
+
     # Power On Check State
     # check if printer is connected and turned on
     def on_enter_PowerOn(self):
         logging.debug("now on_enter_PowerOn")
         self.overlay_screen_turnOnPrinter = -1
 
+        t2 = threading.Thread(target=self.start_webserver, args=[])
+        t2.start()
+        
         if not self.CheckPrinter():
             logging.debug("no printer found")
             self.overlay_screen_turnOnPrinter = self.overlay_image_transparency(self.screen_turnOnPrinter, 0, 3)
@@ -1210,7 +1217,7 @@ def main():
         logging.debug("Starting Photobooth")
         logging.debug("Setting up Webserver")
 
-        app.setup_photobooth(Photobooth(), logging)
+        photobooth = Photobooth()
         logging.debug("Setting up Webserver - done")
 
 
@@ -1221,17 +1228,12 @@ def main():
         #photobooth.__del__()
 
 
-def start_webserver():
-    app.run("0.0.0.0", 4010, debug = False)
+
 
 if __name__ == "__main__":
     try:
       #t1 = threading.Thread(target=main, args=[])
-      t1 = threading.Thread(target=main, args=[])
-      t1.start()
-      time.sleep(10)
-      t2 = threading.Thread(target=start_webserver, args=[])
-      t2.start()
+        main()
 
 
     except KeyboardInterrupt:
