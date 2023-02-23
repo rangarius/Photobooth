@@ -1228,7 +1228,7 @@ if __name__ == "__main__":
       #t1 = threading.Thread(target=main, args=[])
       t1 = threading.Thread(target=main, args=[])
       t1.start()
-      time.sleep(5000)
+      time.sleep(10)
       t2 = threading.Thread(target=start_webserver, args=[])
       t2.start()
 
