@@ -64,6 +64,12 @@ def hello_world():
    configJSONData = json.dumps(layouts, indent=4, cls=ConfigEncoder)
    return configJSONData
 
+@app.route('/restart', methods = ['GET'])
+def restart_photobooth():
+   app.photobooth.to_restart()
+   return "Success"
+   
+
 
 @app.route("/edit/<id>", methods = ["POST"])
 def edit_layout(id):
