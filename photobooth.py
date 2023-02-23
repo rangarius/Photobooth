@@ -1209,7 +1209,7 @@ def main():
 
         logging.debug("Starting Photobooth")
 
-        app.setup_photobooth(Photobooth())
+        app.setup_photobooth(Photobooth(), logging)
 
 
 

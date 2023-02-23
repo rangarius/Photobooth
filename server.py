@@ -25,7 +25,7 @@ class WebServer(Flask):
    photobooth = None
    configParser = None
 
-   def setup_photobooth(self, photobooth) -> bool:
+   def setup_photobooth(self, photobooth, logging) -> bool:
       #self.photobooth = photobooth
       self.photobooth= photobooth
       self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
