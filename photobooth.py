@@ -1226,10 +1226,9 @@ def start_webserver():
 if __name__ == "__main__":
     try:
       #t1 = threading.Thread(target=main, args=[])
-      logging.debug("keyboard interruptsdfsdf")
       t1 = threading.Thread(target=main, args=[])
       t1.start()
-      time.sleep(2)
+      time.sleep(5000)
       t2 = threading.Thread(target=start_webserver, args=[])
       t2.start()
 
