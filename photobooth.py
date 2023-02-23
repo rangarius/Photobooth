@@ -1208,9 +1208,10 @@ def main():
     while True:
 
         logging.debug("Starting Photobooth")
+        logging.debug("Setting up Webserver")
 
         app.setup_photobooth(Photobooth(), logging)
-
+        logging.debug("Setting up Webserver - done")
 
 
         while True:

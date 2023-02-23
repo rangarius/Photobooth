@@ -35,6 +35,7 @@ class WebServer(Flask):
       self.configParser.readCardConfiguration()
       logging.debug(self.configParser)
       logging.debug(self.photobooth)
+      return True
 
 app = WebServer(__name__)
 CORS(app)
