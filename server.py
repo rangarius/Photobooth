@@ -25,7 +25,7 @@ class WebServer(Flask):
    photobooth = None
    configParser = None
 
-   def setup_photobooth(self, photobooth, logging) -> bool:
+   def setup_photobooth(self, photobooth, logging):
       #self.photobooth = photobooth
       self.photobooth= photobooth
       self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
@@ -35,7 +35,7 @@ class WebServer(Flask):
       self.configParser.readCardConfiguration()
       logging.debug(self.configParser)
       logging.debug(self.photobooth)
-      return True
+      #pass
 
 app = WebServer(__name__)
 CORS(app)
