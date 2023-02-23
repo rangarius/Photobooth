@@ -66,9 +66,13 @@ def hello_world():
 
 @app.route('/restart', methods = ['GET'])
 def restart_photobooth():
-   app.photobooth.to_restart()
+   app.photobooth.to_Start()
    return "Success"
-   
+
+@app.route('/awb/<amount>', methods = ["GET"])
+def set_camera_awb(amount):
+   app.photobooth.camera.awb_gains = float(amount)
+   return "AWB: " +str(amount)
 
 
 @app.route("/edit/<id>", methods = ["POST"])

@@ -555,7 +555,7 @@ class Photobooth:
 
 
         self.screen_photo = []
-
+        
         for i in range(0, 9):
             self.screen_photo.append(os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_photo_" + str(i + 1),
@@ -734,7 +734,7 @@ class Photobooth:
 
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
-        
+
         if not self.CheckPrinter():
             logging.debug("no printer found")
             self.overlay_screen_turnOnPrinter = self.overlay_image_transparency(self.screen_turnOnPrinter, 0, 3)
