@@ -3,3 +3,5 @@ Log/
 uploads/*
 __pycache__
 client/
+development/
+venv/

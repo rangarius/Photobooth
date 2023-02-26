@@ -57,7 +57,7 @@ except FileNotFoundError:
 
 
 
-@app.route('/', methods = ['GET'])
+@app.route('/layouts', methods = ['GET'])
 def hello_world():
    image = False
    layouts = app.configParser.layout
@@ -93,3 +93,37 @@ def edit_layout(id):
 def download_file(name):
     return send_from_directory(app.config["UPLOAD_FOLDER"], name)
 
+class Camera:
+   awb_gains = 1.6
+
+class Photobooth:
+   
+   CardConfigFile = "development/Templates/card.ini"
+   camera = Camera()
+
+
+   def __init__(self) -> None:
+      pass
+
+   def to_Start():
+      pass 
+   
+
+
+if __name__ == "__main__":
+    try:
+      #t1 = threading.Thread(target=main, args=[])
+
+        app.setup_photobooth(Photobooth(), logging)
+        app.run("0.0.0.0", 4010, debug=True)
+
+
+    except KeyboardInterrupt:
+        logging.debug("keyboard interrupt")
+
+    except Exception as exception:
+        logging.critical("unexpected error: " + str(exception))
+        logging.exception(exception)
+
+    finally:
+        logging.debug("logfile closed")

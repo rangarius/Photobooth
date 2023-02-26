@@ -16,264 +16,13 @@ import logging  # logging functions
 import cups  # connection to cups printer driver
 import usb  # check if printer is connected and turned on
 from wand.image import Image as image  # image manipulation lib
+
 import threading
 from server import app
-
-
+from photoCard import PhotoCard
+from config_parser import TemplateParser, ConfigParser
 # get the real path of the script
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
-
-"""
-Class containing the single Photos
-"""
-
-
-class PictureOnCard:
-
-    # init method
-    def __init__(self, pictureNumber):
-        self.__resizeX = 800  # defaults
-        self.__resizeY = 600  # defaults
-        self.__rotate = 0
-        self.__posX = 0
-        self.__posY = 0
-        self.__fileNamePrefix = ""
-        self.__pictureNumber = pictureNumber
-        self.__image = ""
-        self.__color = ""
-
-    # list of getter and setter
-    def __getResizeX(self):
-        return self.__resizeX
-
-    def __setResizeX(self, x):
-        self.__resizeX = x
-
-    resizeX = property(__getResizeX, __setResizeX)
-
-    def __getResizeY(self):
-        return self.__resizeY
-
-    def __setResizeY(self, y):
-        self.__resizeY = y
-
-    resizeY = property(__getResizeY, __setResizeY)
-
-    def __getRotate(self):
-        return self.__rotate
-
-    def __setRotate(self, y):
-        self.__rotate = y
-
-    rotate = property(__getRotate, __setRotate)
-
-    def __getPosX(self):
-        return self.__posX
-
-    def __setPosX(self, x):
-        self.__posX = x
-
-    posX = property(__getPosX, __setPosX)
-
-    def __getPosY(self):
-        return self.__posY
-
-    def __setPosY(self, y):
-        self.__posY = y
-
-    posY = property(__getPosY, __setPosY)
-
-    def __getFileNamePrefix(self):
-        return self.__fileNamePrefix
-
-    def __setFileNamePrefix(self, name):
-        self.__fileNamePrefix = name
-
-    fileNamePrefix = property(__getFileNamePrefix, __setFileNamePrefix)
-
-    def __getPictureNumber(self):
-        return self.__pictureNumber
-
-    def __setPictureNumber(self, number):
-        self.__pictureNumber = number
-
-    pictureNumber = property(__getPictureNumber, __setPictureNumber)
-
-    def __getFileName(self):
-        return self.__fileNamePrefix + '_' + str(self.__pictureNumber) + '.jpg'
-
-    def __setFileName(self):
-        pass
-
-    fileName = property(__getFileName, __setFileName)
-
-    def __getImage(self):
-        return self.__image
-
-    def __setImage(self, img):
-        self.__image = img
-
-    img = property(__getImage, __setImage)
-
-    def __getColor(self):
-        return self.__color
-
-    def __setColor(self, color):
-        self.__color = color
-
-    color = property(__getColor, __setColor)
-
-    # string return method
-    def __str__(self):
-        return "Picture: " + str(self.fileName) + " size: " + str(self.resizeX) + " / " + str(self.resizeY) + \
-               " rot: " + str(self.rotate) + " pos: " + str(self.posX) + " / " + str(self.posY) + " - color " + str(self.color)
-
-    # process the image
-    def ProcessImage(self):
-        self.img.resize(self.resizeX, self.resizeY)
-        self.img.rotate(self.rotate)
-
-    # Load the image from the saved filename
-    def LoadImage(self):
-        self.img = image(filename=self.fileName)
-
-
-"""
-class containing the photo card
-"""
-
-
-class PhotoCard:
-
-    # init method
-    def __init__(self):
-        self.__sizeX = 1868  # default for Canon Selphy printer
-        self.__sizeY = 1261  # default for Canon Selphy printer
-        self.__cardTemplate = ""
-        self.__cardFileName = ""
-        self.__picCount = 0
-        self.__fileNamePrefix = ""
-        self.__pictures = []  # list for single pictures on card
-        self.__cardImage = ""
-        self.__layoutInForeground = False
-
-    # list of getter and setter
-    def __getSizeX(self):
-        return self.__sizeX
-
-    def __setSizeX(self, x):
-        self.__sizeX = x
-
-    sizeX = property(__getSizeX, __setSizeX)
-
-    def __getSizeY(self):
-        return self.__sizeY
-
-    def __setSizeY(self, y):
-        self.__sizeY = y
-
-    sizeY = property(__getSizeY, __setSizeY)
-
-    def __getPicCount(self):
-        return self.__picCount
-
-    def __setPicCount(self, piccount):
-        # if piccount is different to current, clear photoobject list and create a new list
-        if piccount != self.__picCount:
-            self.__pictures.clear()
-
-            # create a new list of photoobjects
-            for i in range(1, piccount + 1):
-                self.__pictures.append(PictureOnCard(i))
-
-        self.__picCount = piccount
-
-    piccount = property(__getPicCount, __setPicCount)
-
-    def __getLayoutInForeground(self):
-        return self.__layoutInForeground
-
-    def __setLayoutInForeground(self, foreground):
-        self.__layoutInForeground = foreground
-
-    layoutInForeground = property(__getLayoutInForeground, __setLayoutInForeground)
-
-    def __getCardTemplate(self):
-        return self.__cardTemplate
-
-    def __setCardTemplate(self, name):
-        self.__cardTemplate = name
-
-    templateFileName = property(__getCardTemplate, __setCardTemplate)
-
-    def __getFileNamePrefix(self):
-        return self.__fileNamePrefix
-
-    def __setFileNamePrefix(self, name):
-        self.__fileNamePrefix = name
-        self.cardFileName = self.fileNamePrefix + '_card' + '.jpg'
-        for x in self.__pictures:
-            x.fileNamePrefix = name
-
-    fileNamePrefix = property(__getFileNamePrefix, __setFileNamePrefix)
-
-    def __getCardFileName(self):
-        return self.__cardFileName
-
-    def __setCardFileName(self, name):
-        self.__cardFileName = name
-
-    cardFileName = property(__getCardFileName, __setCardFileName)
-
-    def __getPicture(self):
-        return self.__pictures
-
-    def __setPicture(self):
-        pass
-
-    picture = property(__getPicture, __setPicture)
-
-    def __getCardImage(self):
-        return self.__cardImage
-
-    def __setCardImage(self):
-        pass
-
-    cardImage = property(__getCardImage, __setCardImage)
-
-    # reload the card background image
-    def loadImageTemplate(self):
-        self.__cardImage = image(filename=self.templateFileName).clone()
-
-    # create an empty card, if template is in foreground
-    def createEmptyCard(self):
-        self.__cardImage = image(width=self.sizeX, height=self.sizeY)
-
-    # create the card
-    def processCard(self):
-        #if layout in foreground, the template is overlaied at last
-        if self.layoutInForeground:
-            self.createEmptyCard()
-
-        else:
-            self.loadImageTemplate()
-
-        # composite all photos to card
-        for i in range(0, self.piccount):
-            self.__cardImage.composite(self.picture[i].img, self.picture[i].posX,
-                                       self.picture[i].posY)
-
-        # if Layout is in foreground, overlay it last
-        if self.layoutInForeground:
-            self.__cardImage.composite(image(filename=self.templateFileName).clone(), 0, 0)
-
-        self.__cardImage.resize(int(1868), int(1261))
-
-    # string return method
-    def __str__(self):
-        return str(self.piccount) + " photos on Template: " + str(self.templateFileName) + " save as: " + str(
-            self.cardFileName)
-
 
 """
 Class controlling the photobooth
@@ -292,15 +41,15 @@ class Photobooth:
         self.initStateMachine()
 
         logging.debug("Read Config File")
-        self.readConfiguration()
+        self.config = ConfigParser.readConfiguration()
 
         logging.debug("Config GPIO")
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.pin_button_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(self.pin_button_left, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.pin_button_right, GPIO.FALLING, callback=self.Button2pressed, bouncetime=500)
-        GPIO.add_event_detect(self.pin_button_left, GPIO.FALLING, callback=self.Button1pressed, bouncetime=500)
+        GPIO.setup(self.config.pin_button_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(self.config.pin_button_left, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(self.config.pin_button_right, GPIO.FALLING, callback=self.Button2pressed, bouncetime=500)
+        GPIO.add_event_detect(self.config.pin_button_left, GPIO.FALLING, callback=self.Button1pressed, bouncetime=500)
 
         logging.debug("Set TimeStamp for Buttons")
         self.time_stamp_button1 = time.time()
@@ -317,9 +66,9 @@ class Photobooth:
             logging.CRITICAL("error initializing the camera - exiting")
             raise SystemExit
 
-        self.camera.resolution = (self.photo_w, self.photo_h)
-        self.camera.hflip = self.flip_screen_h
-        self.camera.vflip = self.flip_screen_v
+        self.camera.resolution = (self.config.photo_w, self.config.photo_h)
+        self.camera.hflip = self.config.flip_screen_h
+        self.camera.vflip = self.config.flip_screen_v
         self.startpreview()
 
         self.photonumber = 1
@@ -327,41 +76,14 @@ class Photobooth:
         self.cycleCounter = 0
 
         # load the Logo of the Photobooth and display it
-        self.overlayscreen_logo = self.overlay_image_transparency(self.screen_logo, 0, 5)
+        self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
 
         # find the USB Drive, if connected
         self.PhotoCopyPath = self.GetMountpoint()
 
-        # path for saving photos on usb drive
-        if self.PhotoCopyPath is not None:
-            self.PhotoCopyPath = self.PhotoCopyPath + "/Fotos"
-            logging.debug("Photocopypath = " + self.PhotoCopyPath)
-            if not os.path.exists(self.PhotoCopyPath):
-                logging.debug("os.mkdir(self.PhotoCopyPath)")
-                os.mkdir(self.PhotoCopyPath)
-        else:
-            logging.debug("self.PhotoCopyPath not Set -> No USB Drive Found")
-
-        # find the USB Drive with card layout configuration
-        self.CardConfigFile = self.GetMountpoint()
-
-        # read card config data
-        if self.CardConfigFile is not None:
-            self.CardConfigFile = self.CardConfigFile + '/Fotobox/card.ini'
-            logging.debug("Config file for Card creating:")
-            logging.debug(self.CardConfigFile)
-
-        else:
-            self.CardConfigFile = os.path.join(REAL_PATH, 'Templates/Default/card.ini')
-            logging.debug("Default Config file for Card creating:")
-            logging.debug(self.CardConfigFile)
-
-        # read card configuration if config exists
-        if not os.path.exists(self.CardConfigFile):
-            self.CardConfigFile = os.path.join(REAL_PATH, 'Templates/Default/card.ini')
 
         # load the Card Layout
-        self.readCardConfiguration(self.CardConfigFile)
+        self.readCardConfiguration(self.config.templates_file_path)
 
         # Start the Application
         self.on_enter_PowerOn()
@@ -478,89 +200,7 @@ class Photobooth:
             self.imagetemplate2 = image(filename=self.layout[1].templateFileName)
 
     # read the global configuration, folders, resolution....
-    def readConfiguration(self):
-        logging.debug("Read Config File")
-        self.config = configparser.ConfigParser()
-        self.config.sections()
-        self.config.read(os.path.join(REAL_PATH, 'config.ini'))
-
-        if self.config.getboolean("Debug", "debug", fallback=True) == True:
-            logging.basicConfig(level=logging.DEBUG)
-        else:
-            logging.basicConfig(level=logging.WARNING)
-
-        self.printPicsEnable = self.config.getboolean("Debug", "print", fallback=True)
-
-        if self.printPicsEnable == False:
-            logging.debug("Printing pics disabled")
-
-        self.photo_abs_file_path = os.path.join(REAL_PATH, self.config.get("Paths", "photo_path", fallback="Photos/"))
-        self.screens_abs_file_path = os.path.join(REAL_PATH,
-                                                  self.config.get("Paths", "screen_path", fallback="Screens/"))
-        self.pin_button_left = int(self.config.get("InOut", "pin_button_left", fallback="23"))
-        self.pin_button_right = int(self.config.get("InOut", "pin_button_right", fallback="24"))
-        self.photo_w = int(self.config.get("Resolution", "photo_w", fallback="3280"))
-        self.photo_h = int(self.config.get("Resolution", "photo_h", fallback="2464"))
-        self.screen_w = int(self.config.get("Resolution", "screen_w", fallback="1024"))
-        self.screen_h = int(self.config.get("Resolution", "screen_h", fallback="600"))
-        self.flip_screen_h = self.config.getboolean("Resolution", "flip_screen_h", fallback=False)
-        self.flip_screen_v = self.config.getboolean("Resolution", "flip_screen_v", fallback=False)
-        self.screen_turnOnPrinter = os.path.join(self.screens_abs_file_path,
-                                                 self.config.get("Screens", "screen_turn_on_printer",
-                                                                 fallback="ScreenTurnOnPrinter.png"))
-        self.screen_logo = os.path.join(self.screens_abs_file_path,
-                                        self.config.get("Screens", "screen_logo", fallback="ScreenLogo.png"))
-        self.screen_choose_layout = os.path.join(self.screens_abs_file_path,
-                                                 self.config.get("Screens", "screen_Choose_Layout",
-                                                                 fallback="ScreenChooseLayout.png"))
-        self.screen_countdown_0 = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_countdown_0",
-                                                               fallback="ScreenCountdown0.png"))
-        self.screen_countdown_1 = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_countdown_1",
-                                                               fallback="ScreenCountdown1.png"))
-        self.screen_countdown_2 = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_countdown_2",
-                                                               fallback="ScreenCountdown2.png"))
-        self.screen_countdown_3 = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_countdown_3",
-                                                               fallback="ScreenCountdown3.png"))
-        self.screen_countdown_4 = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_countdown_4",
-                                                               fallback="ScreenCountdown4.png"))
-        self.screen_countdown_5 = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_countdown_5",
-                                                               fallback="ScreenCountdown5.png"))
-        self.screen_black = os.path.join(self.screens_abs_file_path,
-                                         self.config.get("Screens", "screen_black",
-                                                         fallback="ScreenBlack.png"))
-        self.screen_again_next = os.path.join(self.screens_abs_file_path,
-                                              self.config.get("Screens", "screen_again_next",
-                                                              fallback="ScreenAgainNext.png"))
-        self.screen_wait = os.path.join(self.screens_abs_file_path,
-                                        self.config.get("Screens", "screen_wait",
-                                                        fallback="ScreenWait.png"))
-        self.screen_print = os.path.join(self.screens_abs_file_path,
-                                         self.config.get("Screens", "screen_print",
-                                                         fallback="ScreenPrint.png"))
-        self.screen_print_again = os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_print_again",
-                                                               fallback="ScreenPrintagain.png"))
-        self.screen_change_ink = os.path.join(self.screens_abs_file_path,
-                                              self.config.get("Screens", "screen_change_ink",
-                                                              fallback="ScreenChangeInk.png"))
-        self.screen_change_paper = os.path.join(self.screens_abs_file_path,
-                                                self.config.get("Screens", "screen_change_paper",
-                                                                fallback="ScreenChangePaper.png"))
-
-
-        self.screen_photo = []
-        
-        for i in range(0, 9):
-            self.screen_photo.append(os.path.join(self.screens_abs_file_path,
-                                               self.config.get("Screens", "screen_photo_" + str(i + 1),
-                                                               fallback="ScreenPhoto" + str(i + 1) + ".png")))
-
+    #self.config = 
 
     def setCameraColor(self, color):
         if color == "bw":
@@ -703,11 +343,11 @@ class Photobooth:
         self.layout[0].cardImage.resize(int(1868 / 8), int(1261 / 8))
         self.layout[1].cardImage.resize(int(1868 / 8), int(1261 / 8))
 
-        screen = image(width=self.screen_w, height=self.screen_h)
+        screen = image(width=self.config.screen_w, height=self.config.screen_h)
 
         # create screen
-        screen.composite(self.layout[0].cardImage, 131, self.screen_h - 184)
-        screen.composite(self.layout[1].cardImage, self.screen_w - int(1868 / 8) - 131, self.screen_h - 184)
+        screen.composite(self.layout[0].cardImage, 131, self.config.screen_h - 184)
+        screen.composite(self.layout[1].cardImage, self.config.screen_w - int(1868 / 8) - 131, self.config.screen_h - 184)
 
         # save screen to file for displaying
         screen.save(filename=self.screen_choose_layout)
@@ -737,7 +377,7 @@ class Photobooth:
 
         if not self.CheckPrinter():
             logging.debug("no printer found")
-            self.overlay_screen_turnOnPrinter = self.overlay_image_transparency(self.screen_turnOnPrinter, 0, 3)
+            self.overlay_screen_turnOnPrinter = self.overlay_image_transparency(self.config.screen_turnOnPrinter, 0, 3)
 
         while not self.CheckPrinter():
             time.sleep(2)
@@ -761,8 +401,8 @@ class Photobooth:
         self.button2active = False
         
         logging.debug("now on_enter_Start")
-        self.overlay_screen_blackbackground = self.overlay_image(self.screen_black, 0, 2)
-        self.overlay_choose_layout = self.overlay_image_transparency(self.screen_choose_layout, 0, 7)
+        self.overlay_screen_blackbackground = self.overlay_image(self.config.screen_black, 0, 2)
+        self.overlay_choose_layout = self.overlay_image_transparency(self.config.screen_choose_layout, 0, 7)
 
     # leave start screen
     def on_exit_Start(self):
@@ -780,22 +420,22 @@ class Photobooth:
         self.setCameraColor(self.layout[self.current_Layout - 1].picture[self.photonumber - 1].color)
 
         # print the countdown
-        self.overlay_screen_Countdown = self.overlay_image_transparency(self.screen_countdown_5, 0, 7)
+        self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_5, 0, 7)
         time.sleep(1)
         self.remove_overlay(self.overlay_screen_Countdown)
-        self.overlay_screen_Countdown = self.overlay_image_transparency(self.screen_countdown_4, 0, 7)
+        self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_4, 0, 7)
         time.sleep(1)
         self.remove_overlay(self.overlay_screen_Countdown)
-        self.overlay_screen_Countdown = self.overlay_image_transparency(self.screen_countdown_3, 0, 7)
+        self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_3, 0, 7)
         time.sleep(1)
         self.remove_overlay(self.overlay_screen_Countdown)
-        self.overlay_screen_Countdown = self.overlay_image_transparency(self.screen_countdown_2, 0, 7)
+        self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_2, 0, 7)
         time.sleep(1)
         self.remove_overlay(self.overlay_screen_Countdown)
-        self.overlay_screen_Countdown = self.overlay_image_transparency(self.screen_countdown_1, 0, 7)
+        self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_1, 0, 7)
         time.sleep(1)
         self.remove_overlay(self.overlay_screen_Countdown)
-        self.overlay_screen_Countdown = self.overlay_image_transparency(self.screen_countdown_0, 0, 7)
+        self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_0, 0, 7)
         time.sleep(1)
         self.remove_overlay(self.overlay_screen_Countdown)
 
@@ -821,7 +461,7 @@ class Photobooth:
         logging.debug("now on_enter_ShowPhoto")
 
         # show last photo and menu
-        self.overlay_screen_black = self.overlay_image(self.screen_black, 0, 5)
+        self.overlay_screen_black = self.overlay_image(self.config.screen_black, 0, 5)
         self.overlay_last_photo = self.overlay_image(self.lastfilename, 0, 6)
         self.overlay_photo_number = self.overlay_image_transparency(self.screen_photo[self.photonumber - 1], 0, 8)
 
@@ -829,12 +469,12 @@ class Photobooth:
         logging.debug(str(self.lastfilename))
 
         # copy photo to USB Drive
-        if self.PhotoCopyPath is not None:
-            logging.debug(str(self.PhotoCopyPath))
-            logging.debug(os.path.basename(str(self.lastfilename)))
-            logging.debug((str(self.PhotoCopyPath)) + '/' + os.path.basename(str(self.lastfilename)))
-            shutil.copyfile((str(self.lastfilename)),
-                            ((str(self.PhotoCopyPath)) + '/' + os.path.basename(str(self.lastfilename))))
+        # if self.PhotoCopyPath is not None:
+        #     logging.debug(str(self.PhotoCopyPath))
+        #     logging.debug(os.path.basename(str(self.lastfilename)))
+        #     logging.debug((str(self.PhotoCopyPath)) + '/' + os.path.basename(str(self.lastfilename)))
+        #     shutil.copyfile((str(self.lastfilename)),
+        #                     ((str(self.PhotoCopyPath)) + '/' + os.path.basename(str(self.lastfilename))))
 
         logging.debug("start resizing")
         logging.debug("self.photonumber")
@@ -846,7 +486,7 @@ class Photobooth:
         self.layout[self.current_Layout - 1].picture[self.photonumber - 1].LoadImage()
         self.layout[self.current_Layout - 1].picture[self.photonumber - 1].ProcessImage()
 
-        self.overlay_again_next = self.overlay_image_transparency(self.screen_again_next, 0, 7)
+        self.overlay_again_next = self.overlay_image_transparency(self.config.screen_again_next, 0, 7)
 
         logging.debug("finish resizing")
 
@@ -865,7 +505,7 @@ class Photobooth:
         logging.debug("self.MaxPhotos")
         logging.debug(self.MaxPhotos)
 
-        self.overlay_wait = self.overlay_image_transparency(self.screen_wait, 0, 7)
+        self.overlay_wait = self.overlay_image_transparency(self.config.screen_wait, 0, 7)
 
         # name of saved card for later use
         self.cardfilename = self.layout[self.current_Layout - 1].cardFileName
@@ -887,13 +527,13 @@ class Photobooth:
         logging.debug("now on_enter_ShowCard")
 
         self.overlay_last_card = self.overlay_image(self.cardfilename, 0, 6)
-        self.overlay_screen_print = self.overlay_image_transparency(self.screen_print, 0, 7)
+        self.overlay_screen_print = self.overlay_image_transparency(self.config.screen_print, 0, 7)
 
         logging.debug("copying")
         # copy card to photo folder
-        if self.PhotoCopyPath is not None:
-            logging.debug("Copy Card to USB Drive")
-            shutil.copy2(str(self.cardfilename), str(self.PhotoCopyPath))
+        # if self.PhotoCopyPath is not None:
+        #     logging.debug("Copy Card to USB Drive")
+        #     shutil.copy2(str(self.cardfilename), str(self.PhotoCopyPath))
 
     def on_exit_ShowCard(self):
         logging.debug("now on_exit_ShowCard")
@@ -912,7 +552,7 @@ class Photobooth:
             logging.debug("print enable = false")
 
         # print photo?
-        if self.printPicsEnable == True:
+        if self.config.printPicsEnable == True:
             logging.debug("print enable = true")
 
             # connect to cups
@@ -994,7 +634,7 @@ class Photobooth:
     # show refill paper instructions
     def on_enter_RefillPaper(self):
         logging.debug("now on_enter_RefillPaper")
-        self.overlayscreen_refillpaper = self.overlay_image(self.screen_change_paper, 0, 8)
+        self.overlayscreen_refillpaper = self.overlay_image(self.config.screen_change_paper, 0, 8)
 
     def on_exit_RefillPaper(self):
         logging.debug("now on_exit_RefillPaper")
@@ -1003,7 +643,7 @@ class Photobooth:
     # show refill ink instructions
     def on_enter_RefillInk(self):
         logging.debug("now on_enter_RefillInk")
-        self.overlayscreen_refillink = self.overlay_image(self.screen_change_ink, 0, 8)
+        self.overlayscreen_refillink = self.overlay_image(self.config.screen_change_ink, 0, 8)
 
     def on_exit_RefillInk(self):
         logging.debug("now on_exit_RefillInk")
@@ -1023,20 +663,20 @@ class Photobooth:
             logging.CRITICAL("error initializing the camera - exiting")
             raise SystemExit
 
-        self.camera.resolution = (self.photo_w, self.photo_h)
-        self.camera.hflip = self.flip_screen_h
-        self.camera.vflip = self.flip_screen_v
+        self.camera.resolution = (self.config.photo_w, self.config.photo_h)
+        self.camera.hflip = self.config.flip_screen_h
+        self.camera.vflip = self.config.flip_screen_v
         self.startpreview()
 
         # load the Logo of the Photobooth and display it
-        self.overlayscreen_logo = self.overlay_image_transparency(self.screen_logo, 0, 5)
+        self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
 
         self.to_Start()
 
     # start the camera
     def startpreview(self):
         logging.debug("Start Camera preview")
-        self.camera.start_preview(resolution=(self.screen_w, self.screen_h))
+        self.camera.start_preview(resolution=(self.config.screen_w, self.config.screen_h))
         # camera.color_effects = (128, 128)  # SW
         pass
 
@@ -1050,7 +690,7 @@ class Photobooth:
     def get_base_filename_for_images(self):
         logging.debug("Get BaseName for ImageFiles")
         # returns the filename base
-        base_filename = self.photo_abs_file_path + str(datetime.now()).split('.')[0]
+        base_filename = self.config.photo_abs_file_path + str(datetime.now()).split('.')[0]
         base_filename = base_filename.replace(' ', '_')
         base_filename = base_filename.replace(':', '-')
 
@@ -1177,7 +817,7 @@ class Photobooth:
     def CheckPrinter(self):
         logging.debug("CheckPrinter")
 
-        if self.printPicsEnable == False:
+        if self.config.printPicsEnable == False:
             logging.debug("printing disabled")
             return True
 
