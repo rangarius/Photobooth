@@ -41,7 +41,7 @@ class Photobooth:
         self.initStateMachine()
 
         logging.debug("Read Config File")
-        self.config = ConfigParser.readConfiguration()
+        self.config = ConfigParser().readConfiguration()
 
         logging.debug("Config GPIO")
         GPIO.setwarnings(False)
@@ -137,67 +137,10 @@ class Photobooth:
 
     # Read the Card Creating Configuration
     def readCardConfiguration(self, path):
-        logging.debug("Read card Config File")
-        self.cardconfig = configparser.ConfigParser()
-        self.cardconfig.sections()
-
-        if path is not None:
-            logging.debug("start reading")
-            self.cardconfig.read(path)
-
-            # layout 1 configuration
-            self.layout[0].piccount = int(self.cardconfig.get("Layout1", "piccount", fallback="0"))
-            self.layout[0].templateFileName = os.path.join(os.path.split(path)[0],
-                                                           self.cardconfig.get("Layout1", "cardtemplate", fallback="0"))
-
-            self.layout[0].layoutInForeground = self.cardconfig.getboolean("Layout1", "layout_in_foreground", fallback=False)
-
-            # manipulation of photos for Layout 1
-            for i in range(0, self.layout[0].piccount):
-                self.layout[0].picture[i].resizeX = int(
-                    self.cardconfig.get("Layout1", "resize_image_x_" + str(i + 1), fallback="0"))
-                self.layout[0].picture[i].resizeY = int(
-                    self.cardconfig.get("Layout1", "resize_image_y_" + str(i + 1), fallback="0"))
-                self.layout[0].picture[i].rotate = int(
-                    self.cardconfig.get("Layout1", "rotate_image_" + str(i + 1), fallback="0"))
-                self.layout[0].picture[i].posX = int(
-                    self.cardconfig.get("Layout1", "position_image_x_" + str(i + 1), fallback="0"))
-                self.layout[0].picture[i].posY = int(
-                    self.cardconfig.get("Layout1", "position_image_y_" + str(i + 1), fallback="0"))
-                self.layout[0].picture[i].color = self.cardconfig.get("Layout1", "color_image_" + str(i + 1), fallback="color")
-
-                logging.debug(self.layout[0].picture[i])
-
-            logging.debug(self.layout[0])
-
-            # layout 2 configuration
-            self.layout[1].piccount = int(self.cardconfig.get("Layout2", "piccount", fallback="0"))
-            self.layout[1].templateFileName = os.path.join(os.path.split(path)[0],
-                                                           self.cardconfig.get("Layout2", "cardtemplate", fallback="0"))
-
-            self.layout[1].layoutInForeground = self.cardconfig.getboolean("Layout2", "layout_in_foreground", fallback=False)
-
-            # manipulation of photos for Layout 2
-            for i in range(0, self.layout[1].piccount):
-                self.layout[1].picture[i].resizeX = int(
-                    self.cardconfig.get("Layout2", "resize_image_x_" + str(i + 1), fallback="0"))
-                self.layout[1].picture[i].resizeY = int(
-                    self.cardconfig.get("Layout2", "resize_image_y_" + str(i + 1), fallback="0"))
-                self.layout[1].picture[i].rotate = int(
-                    self.cardconfig.get("Layout2", "rotate_image_" + str(i + 1), fallback="0"))
-                self.layout[1].picture[i].posX = int(
-                    self.cardconfig.get("Layout2", "position_image_x_" + str(i + 1), fallback="0"))
-                self.layout[1].picture[i].posY = int(
-                    self.cardconfig.get("Layout2", "position_image_y_" + str(i + 1), fallback="0"))
-                self.layout[1].picture[i].color = self.cardconfig.get("Layout2", "color_image_" + str(i + 1),
-                                                                      fallback="color")
-
-                logging.debug(self.layout[1].picture[i])
-
-            logging.debug(self.layout[1])
-
-            self.imagetemplate1 = image(filename=self.layout[0].templateFileName)
-            self.imagetemplate2 = image(filename=self.layout[1].templateFileName)
+        self.layoutParser = TemplateParser(path)
+        self.layout = self.layoutParser.layout
+        self.imagetemplate1 = image(filename=self.layout[0].templateFileName)
+        self.imagetemplate2 = image(filename=self.layout[1].templateFileName)
 
     # read the global configuration, folders, resolution....
     #self.config = 

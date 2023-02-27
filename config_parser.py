@@ -9,34 +9,69 @@ logger = logging.getLogger(__name__)
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
+
+
 class TemplateParser: 
 
     def __init__(self, path) -> None:
         self.path = path;
         self.layout = [PhotoCard(), PhotoCard()]
+        self.readCardConfiguration()
 
-    def writeCardConfig(self, data):
-        layout_str = "Layout"+data["id"]
-        if not self.cardconfig.has_section(layout_str):
-            self.cardconfig.add_section(layout_str)
+    def parseData(self, data):
+        if data["id"] is not None:
+            id = int(data["id"])
+            card = self.layout[id-1]
 
-        self.cardconfig.set(layout_str, "piccount", str(data["piccount"]))
-        self.cardconfig.set(layout_str, "layout_in_foreground", str(data["layoutInForeground"]))
-        self.cardconfig.set(layout_str, "cardtemplate", "picture"+data["id"]+".png")
-        
-        pictures = data["pictures"]
-        for i in range(0, len(pictures)):
-            value = pictures[i]
-            self.cardconfig.set(layout_str, "resize_image_x_"+str(i+1), str(value["resizeX"]))
-            self.cardconfig.set(layout_str, "resize_image_y_"+str(i+1), str(value["resizeY"]))
-            self.cardconfig.set(layout_str, "position_image_x_"+str(i+1), str(value["posX"]))
-            self.cardconfig.set(layout_str, "position_image_y_"+str(i+1), str(value["posY"]))
-            self.cardconfig.set(layout_str, "rotate_image_"+str(i+1), str(value["rotate"]))
+            if data["piccount"] is not None:
+                card.piccount = int(data["piccount"])
+            if data["layout_in_foreground"] is not None:
+                card.layoutInForeground = bool(data["layout_in_foreground"])
+            if data["cardtemplate"] is not None:
+                card.templateFileName = str("picture" + data["id"]+".png")
+
+            if data["pictures"] is not None:
+                pictures = data["pictures"]
+                for i in range(0, len(pictures)):
+                    pic_data = pictures[i]
+                    picture = card.pictures[i]
+                    if picture is None:
+                        picture = PictureOnCard()
+                    
+                    picture.resizeX = int(pic_data["resize_image_x"])
+                    picture.resizeY = int(pic_data["resize_image_y"])
+                    picture.rotate = int(pic_data["rotate_image"])
+                    picture.posX = int(pic_data["position_image_x"])
+                    picture.posY = int(pic_data["position_image_y"])
+
+                    card.pictures[i] = picture
+
+
+    def writeCardConfig(self):
+        for i in range(0,2):
+            id = i + 1
+            layout_str = "Layout"+id
+            card = self.layout[i]
+
+            if not self.cardconfig.has_section(layout_str):
+                self.cardconfig.add_section(layout_str)
+
+            self.cardconfig.set(layout_str, "piccount", str(card.piccount))
+            self.cardconfig.set(layout_str, "layout_in_foreground", str(card.layoutInForeground))
+            self.cardconfig.set(layout_str, "cardtemplate", "picture"+str(id)+".png")
+            pictures = card.pictures
+
+            for i in range(0, len(pictures)):
+                picture = pictures[i]
+                pic_id = i + 1
+                self.cardconfig.set(layout_str, "resize_image_x_"+str(pic_id), str(picture.resizeX))
+                self.cardconfig.set(layout_str, "resize_image_y_"+str(pic_id), str(picture.resizeY))
+                self.cardconfig.set(layout_str, "position_image_x_"+str(pic_id), str(picture.posX))
+                self.cardconfig.set(layout_str, "position_image_y_"+str(pic_id), str(picture.posY))
+                self.cardconfig.set(layout_str, "rotate_image_"+str(pic_id), str(picture.rotate))
 
         with open(self.path, 'w') as configfile:    # save
             self.cardconfig.write(configfile, True)
-        
-        self.readCardConfiguration()
 
     def readCardConfiguration(self):
         logger.debug("Read card Config File")
@@ -75,18 +110,37 @@ class TemplateParser:
 
         logger.debug(self.layout[l])
 
+class Config:
+    sections = ["Debug", "Paths", "InOut", "Resolution", "Camera"]
+    debug: True
+    print: True
+    photo_abs_file_path = ""
+    screens_abs_file_path = ""
+    templates_file_path = ""
+    pin_button_left = 23
+    pin_button_right = 24
+    photo_w = 3280
+    photo_h = 2464
+    screen_w = 1024
+    screen_h = 600
+    flip_screen_h = False
+    flip_screen_v = False
+    camera_awb_mode = "auto"
+    camera_awb_gains = 1.6
+
+
 class ConfigParser: 
     logging = None
 
     def __init__(self, logging) -> None:
         self.logging = logging
+        self.configParser = configparser.ConfigParser()
+        self.configParser.read(os.path.join(REAL_PATH, 'config.ini'))
+        self.config = Config()
+        self.readConfiguration()
 
-    def readConfiguration(self) -> ConfigParser:
-
+    def readConfiguration(self) -> Config:
         logging.debug("Read Config File")
-        self.config = configparser.ConfigParser()
-        self.config.sections()
-        self.config.read(os.path.join(REAL_PATH, 'config.ini'))
 
         if self.config.getboolean("Debug", "debug", fallback=True) == True:
             logging.basicConfig(level=logging.DEBUG)
@@ -98,74 +152,127 @@ class ConfigParser:
         if self.printPicsEnable == False:
             logging.debug("Printing pics disabled")
 
-        self.photo_abs_file_path = os.path.join(REAL_PATH, self.config.get("Paths", "photo_path", fallback="Photos/"))
-        self.screens_abs_file_path = os.path.join(REAL_PATH,
+        self.config.photo_abs_file_path = os.path.join(REAL_PATH, self.config.get("Paths", "photo_path", fallback="Photos/"))
+        self.config.screens_abs_file_path = os.path.join(REAL_PATH,
                                                   self.config.get("Paths", "screen_path", fallback="Screens/"))
-        self.templates_file_path = os.path.join(REAL_PATH,
+        self.config.templates_file_path = os.path.join(REAL_PATH,
                                                   self.config.get("Paths", "templates_path", fallback="Tempates/"))
-        self.pin_button_left = int(self.config.get("InOut", "pin_button_left", fallback="23"))
-        self.pin_button_right = int(self.config.get("InOut", "pin_button_right", fallback="24"))
-        self.photo_w = int(self.config.get("Resolution", "photo_w", fallback="3280"))
-        self.photo_h = int(self.config.get("Resolution", "photo_h", fallback="2464"))
-        self.screen_w = int(self.config.get("Resolution", "screen_w", fallback="1024"))
-        self.screen_h = int(self.config.get("Resolution", "screen_h", fallback="600"))
-        self.flip_screen_h = self.config.getboolean("Resolution", "flip_screen_h", fallback=False)
-        self.flip_screen_v = self.config.getboolean("Resolution", "flip_screen_v", fallback=False)
-        self.screen_turnOnPrinter = os.path.join(self.screens_abs_file_path,
+        self.config.pin_button_left = int(self.config.get("InOut", "pin_button_left", fallback="23"))
+        self.config.pin_button_right = int(self.config.get("InOut", "pin_button_right", fallback="24"))
+        self.config.photo_w = int(self.config.get("Resolution", "photo_w", fallback="3280"))
+        self.config.photo_h = int(self.config.get("Resolution", "photo_h", fallback="2464"))
+        self.config.screen_w = int(self.config.get("Resolution", "screen_w", fallback="1024"))
+        self.config.screen_h = int(self.config.get("Resolution", "screen_h", fallback="600"))
+        self.config.flip_screen_h = self.config.getboolean("Resolution", "flip_screen_h", fallback=False)
+        self.config.flip_screen_v = self.config.getboolean("Resolution", "flip_screen_v", fallback=False)
+        self.config.screen_turnOnPrinter = os.path.join(self.screens_abs_file_path,
                                                  self.config.get("Screens", "screen_turn_on_printer",
                                                                  fallback="ScreenTurnOnPrinter.png"))
-        self.screen_logo = os.path.join(self.screens_abs_file_path,
+        self.config.screen_logo = os.path.join(self.screens_abs_file_path,
                                         self.config.get("Screens", "screen_logo", fallback="ScreenLogo.png"))
-        self.screen_choose_layout = os.path.join(self.screens_abs_file_path,
+        self.config.screen_choose_layout = os.path.join(self.screens_abs_file_path,
                                                  self.config.get("Screens", "screen_Choose_Layout",
                                                                  fallback="ScreenChooseLayout.png"))
-        self.screen_countdown_0 = os.path.join(self.screens_abs_file_path,
+        self.config.screen_countdown_0 = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_countdown_0",
                                                                fallback="ScreenCountdown0.png"))
-        self.screen_countdown_1 = os.path.join(self.screens_abs_file_path,
+        self.config.screen_countdown_1 = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_countdown_1",
                                                                fallback="ScreenCountdown1.png"))
-        self.screen_countdown_2 = os.path.join(self.screens_abs_file_path,
+        self.config.screen_countdown_2 = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_countdown_2",
                                                                fallback="ScreenCountdown2.png"))
-        self.screen_countdown_3 = os.path.join(self.screens_abs_file_path,
+        self.config.screen_countdown_3 = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_countdown_3",
                                                                fallback="ScreenCountdown3.png"))
-        self.screen_countdown_4 = os.path.join(self.screens_abs_file_path,
+        self.config.screen_countdown_4 = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_countdown_4",
                                                                fallback="ScreenCountdown4.png"))
-        self.screen_countdown_5 = os.path.join(self.screens_abs_file_path,
+        self.config.screen_countdown_5 = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_countdown_5",
                                                                fallback="ScreenCountdown5.png"))
-        self.screen_black = os.path.join(self.screens_abs_file_path,
+        self.config.screen_black = os.path.join(self.screens_abs_file_path,
                                          self.config.get("Screens", "screen_black",
                                                          fallback="ScreenBlack.png"))
-        self.screen_again_next = os.path.join(self.screens_abs_file_path,
+        self.config.screen_again_next = os.path.join(self.screens_abs_file_path,
                                               self.config.get("Screens", "screen_again_next",
                                                               fallback="ScreenAgainNext.png"))
-        self.screen_wait = os.path.join(self.screens_abs_file_path,
+        self.config.screen_wait = os.path.join(self.screens_abs_file_path,
                                         self.config.get("Screens", "screen_wait",
                                                         fallback="ScreenWait.png"))
-        self.screen_print = os.path.join(self.screens_abs_file_path,
+        self.config.screen_print = os.path.join(self.screens_abs_file_path,
                                          self.config.get("Screens", "screen_print",
                                                          fallback="ScreenPrint.png"))
-        self.screen_print_again = os.path.join(self.screens_abs_file_path,
+        self.config.screen_print_again = os.path.join(self.screens_abs_file_path,
                                                self.config.get("Screens", "screen_print_again",
                                                                fallback="ScreenPrintagain.png"))
-        self.screen_change_ink = os.path.join(self.screens_abs_file_path,
+        self.config.screen_change_ink = os.path.join(self.screens_abs_file_path,
                                               self.config.get("Screens", "screen_change_ink",
                                                               fallback="ScreenChangeInk.png"))
-        self.screen_change_paper = os.path.join(self.screens_abs_file_path,
+        self.config.screen_change_paper = os.path.join(self.screens_abs_file_path,
                                                 self.config.get("Screens", "screen_change_paper",
                                                                 fallback="ScreenChangePaper.png"))
+        self.config.camera_awb_mode = self.config.get("Camera", "camera_awb_mode", fallback="auto")
+        self.config.camera_awb_mode = float(self.config.get("Camera", "camera_awb_gains", fallback="1.6"))
 
-
-        self.screen_photo = []
+        self.config.screen_photo = []
         
         for i in range(0, 9):
-            self.screen_photo.append(os.path.join(self.screens_abs_file_path,
+            self.config.screen_photo.append(os.path.join(self.config.screens_abs_file_path,
                                                self.config.get("Screens", "screen_photo_" + str(i + 1),
                                                                fallback="ScreenPhoto" + str(i + 1) + ".png")))
+    def parseData(self, data):
+        if data is not None:
+            if data["photo_path"] is not None:
+                self.config.photo_abs_file_path = os.path.join(REAL_PATH, str(data["photo_path"]))
+            if data["screen_path"] is not None:
+                self.config.screens_abs_file_path = os.path.join(REAL_PATH, str(data["screen_path"]))
+            if data["tempates_path"] is not None:
+                self.config.templates_file_path = os.path.join(REAL_PATH, str(data["template_path"]))
+            
+            if data["photo_w"] is not None:
+                self.config.photo_w = int(data["photo_w"])
+            if data["photo_h"] is not None:
+                self.config.photo_h = int(data["photo_h"])
+            if data["screen_w"] is not None:
+                self.config.screen_w = int(data["screen_w"])
+            if data["screen_h"] is not None:
+                self.config.screen_h = int(data["screen_h"])
+            if data["flip_screen_h"] is not None:
+                self.config.flip_screen_h = bool(data["flip_screen_h"])
+            if data["flip_screen_v"] is not None:
+                self.config.flip_screen_v = bool(data["flip_screen_v"])
+
+            if data["camera_awb_mode"] is not None:
+                self.config.camera_awb_mode = str[data["camera_awb_mode"]]
+            if data["camera_awb_gains"] is not None:
+                self.config.camera_awb_gains = float[data["camera_awb_gains"]]
+
+    def writeConfig(self):
+        #
+        for i in range(0, len(self.config.sections)):
+            if not self.cardconfig.has_section(self.config.sections[i]):
+                self.cardconfig.add_section(self.config.sections[i])
+ 
+        self.cardconfig.set("Paths", "photo_path", self.config.photo_abs_file_path[len(REAL_PATH):])
+        self.cardconfig.set("Paths", "screen_path", self.config.screens_abs_file_path[len(REAL_PATH):])
+        self.cardconfig.set("Paths", "templates_path", self.config.templates_file_path[len(REAL_PATH):])
+
+        self.cardconfig.set("InOut", "pin_button_left", str(self.config.pin_button_left))
+        self.cardconfig.set("InOut", "pin_button_right", str(self.config.pin_button_right))
+
+        self.cardconfig.set("Resolution", "photo_w", str(self.config.photo_w))
+        self.cardconfig.set("Resolution", "photo_h", str(self.config.photo_h))
+        self.cardconfig.set("Resolution", "screen_w", str(self.config.screen_w))
+        self.cardconfig.set("Resolution", "screen_h", str(self.config.screen_h))
+        self.cardconfig.set("Resolution", "flip_screen_h", str(self.config.flip_screen_h))
+        self.cardconfig.set("Resolution", "flip_screen_v", str(self.config.flip_screen_v))
+
+        self.cardconfig.set("Camera", "camera_awb_mode,", str(self.config.camera_awb_mode))
+        self.cardconfig.set("Camera", "camera_awb_gains,", str(self.config.camera_awb_gains))
 
 
+        with open(self.path, 'w') as configfile:    # save
+            self.cardconfig.write(configfile, True)
+        
     

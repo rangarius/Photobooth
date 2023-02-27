@@ -3,7 +3,7 @@ import json
 from json import JSONEncoder
 from flask import Flask, request, render_template, request, send_from_directory, flash, jsonify
 from werkzeug.utils import secure_filename
-from config_parser import TemplateParser
+from config_parser import TemplateParser, ConfigParser
 import logging
 from datetime import datetime  # datetime routine
 import secrets
@@ -24,17 +24,25 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 class WebServer(Flask): 
    photobooth = None
    configParser = None
+   templateParser = None
 
    def setup_photobooth(self, photobooth, logging):
       #self.photobooth = photobooth
       self.photobooth= photobooth
-      self.config['UPLOAD_FOLDER'] = os.path.dirname(self.photobooth.CardConfigFile)
-      path = self.photobooth.CardConfigFile
-      self.configParser = TemplateParser(path)
+
+
+      logging.debug("Setting Up Config Parser")
+      self.configParser = ConfigParser()
+      self.configParser.readConfiguration()
+      
+      logging.debug("Setting Up Template Parser")
+      self.templateParser = TemplateParser(self.configParser.templates_file_path)
+      self.templateParser.readCardConfiguration()
       # app.config[‘MAX_CONTENT_PATH’] = 
-      self.configParser.readCardConfiguration()
-      logging.debug(self.configParser)
-      logging.debug(self.photobooth)
+
+      
+      
+      
       #pass
 
 app = WebServer(__name__)
@@ -58,10 +66,17 @@ except FileNotFoundError:
 
 
 @app.route('/layouts', methods = ['GET'])
-def hello_world():
+def list_layouts():
    image = False
-   layouts = app.configParser.layout
+   layouts = app.templateParser.layout
    configJSONData = json.dumps(layouts, indent=4, cls=ConfigEncoder)
+   return configJSONData
+
+@app.route('/config', methods = ['GET'])
+def list_config():
+   image = False
+   config = app.configParser.config
+   configJSONData = json.dumps(config, indent=4, cls=ConfigEncoder)
    return configJSONData
 
 @app.route('/restart', methods = ['GET'])
