@@ -1,4 +1,3 @@
-from PIL import Image  # image manipulation for Overlay
 from wand.image import Image as image  # image manipulation lib
 
 

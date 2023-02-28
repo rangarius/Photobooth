@@ -66,9 +66,7 @@ class Photobooth:
             logging.CRITICAL("error initializing the camera - exiting")
             raise SystemExit
 
-        self.camera.resolution = (self.config.photo_w, self.config.photo_h)
-        self.camera.hflip = self.config.flip_screen_h
-        self.camera.vflip = self.config.flip_screen_v
+        self.setupCamera()
         self.startpreview()
 
         self.photonumber = 1
@@ -87,6 +85,15 @@ class Photobooth:
 
         # Start the Application
         self.on_enter_PowerOn()
+
+    #setup Camera Settings
+    def setupCamera(self):
+        self.camera.resolution = (self.config.photo_w, self.config.photo_h)
+        self.camera.hflip = self.config.flip_screen_h
+        self.camera.vflip = self.config.flip_screen_v
+        self.camera.awb_gains = self.config.camera_awb_gains
+        self.camera.awb_mode = self.config.camera_awb_mode
+        self.camera.iso = self.config.camera.iso
 
     # ends the Application
     def __del__(self):
@@ -606,9 +613,7 @@ class Photobooth:
             logging.CRITICAL("error initializing the camera - exiting")
             raise SystemExit
 
-        self.camera.resolution = (self.config.photo_w, self.config.photo_h)
-        self.camera.hflip = self.config.flip_screen_h
-        self.camera.vflip = self.config.flip_screen_v
+        self.setupCamera()
         self.startpreview()
 
         # load the Logo of the Photobooth and display it
