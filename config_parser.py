@@ -113,7 +113,7 @@ class TemplateParser:
 class Config:
     sections = ["Debug", "Paths", "InOut", "Resolution", "Camera"]
     debug: True
-    print: True
+    printPicEnable: True
     photo_abs_file_path = ""
     screens_abs_file_path = ""
     templates_file_path = ""
@@ -150,7 +150,7 @@ class ConfigParser:
         else:
             logging.basicConfig(level=logging.WARNING)
 
-        self.printPicsEnable = self.configParser.getboolean("Debug", "print", fallback=True)
+        self.config.printPicsEnable = self.configParser.getboolean("Debug", "print", fallback=True)
 
         if self.printPicsEnable == False:
             logging.debug("Printing pics disabled")
