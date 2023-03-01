@@ -152,7 +152,7 @@ class ConfigParser:
 
         self.config.printPicsEnable = self.configParser.getboolean("Debug", "print", fallback=True)
 
-        if self.printPicsEnable == False:
+        if self.config.printPicsEnable == False:
             logging.debug("Printing pics disabled")
 
         self.config.photo_abs_file_path = os.path.join(REAL_PATH, self.configParser.get("Paths", "photo_path", fallback="Photos/"))
