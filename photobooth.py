@@ -96,15 +96,7 @@ class Photobooth:
         self.camera.awb_mode = self.config.camera_awb_mode
         self.camera.iso = self.config.camera.iso
 
-    # ends the Application
-    def __del__(self):
-        logging.debug("__del__ Function")
-        # self.stoppreview()
-        # self.camera.close()
-        GPIO.setmode(GPIO.BCM)
-        GPIO.cleanup()
-        del self.imagetemplate1
-        del self.imagetemplate2
+
 
     # Init the State machine controlling the Photobooth
     def initStateMachine(self):
@@ -781,6 +773,15 @@ class Photobooth:
                     return True
         logging.debug("PrinterNotFound")
         return False
+        # ends the Application
+    def __del__(self):
+        logging.debug("__del__ Function")
+        self.stoppreview()
+        self.camera.close()
+        GPIO.setmode(GPIO.BCM)
+        GPIO.cleanup()
+        del self.imagetemplate1
+        del self.imagetemplate2
 
 
 # Main Routine
