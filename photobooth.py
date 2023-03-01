@@ -20,7 +20,7 @@ from wand.image import Image as image  # image manipulation lib
 import threading
 from server import app
 from photoCard import PhotoCard
-from config_parser import TemplateParser, ConfigParser
+from config_parser import TemplateParser, ConfigParser, Config
 # get the real path of the script
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 
@@ -41,6 +41,7 @@ class Photobooth:
         self.initStateMachine()
 
         logging.debug("Read Config File")
+        self.config = Config()
         self.config = ConfigParser(logging).readConfiguration()
 
         logging.debug("Config GPIO")
