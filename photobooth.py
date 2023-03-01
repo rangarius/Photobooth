@@ -33,7 +33,8 @@ class Photobooth:
     # define state machine for taking photos
     FSMstates = ['PowerOn', 'Start', 'CountdownPhoto', 'TakePhoto', 'ShowPhoto', 'CreateCard', 'ShowCard', 'PrintCard',
                  'RefillPaper', 'RefillInk', 'Restart']
-
+    camera = None
+    
     def __init__(self):
         # create the card objects
         self.layout = [PhotoCard(), PhotoCard()]
