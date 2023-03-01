@@ -45,6 +45,7 @@ class Photobooth:
         self.config = ConfigParser(logging).readConfiguration()
 
         logging.debug("Config GPIO")
+        logging.debug(self.config)
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.config.pin_button_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
