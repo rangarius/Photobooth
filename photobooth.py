@@ -141,7 +141,7 @@ class Photobooth:
                                     trigger='InkEmpty')  # Refill Ink on printer
 
     # Read the Card Creating Configuration
-    def readCardConfiguration(self, path):
+    def readCardConfiguration(self):
         self.layout = self.layoutParser.layout
         self.imagetemplate1 = image(filename=self.layout[0].templateFileName)
         self.imagetemplate2 = image(filename=self.layout[1].templateFileName)
