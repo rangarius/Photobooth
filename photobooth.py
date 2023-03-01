@@ -94,7 +94,7 @@ class Photobooth:
         self.camera.resolution = (self.config.photo_w, self.config.photo_h)
         self.camera.hflip = self.config.flip_screen_h
         self.camera.vflip = self.config.flip_screen_v
-        self.camera.awb_gains = self.config.camera_awb_gains
+        self.camera.awb_gains = (self.config.camera_awb_gains_red, self.config.camera_awb_gains_blue)
         self.camera.awb_mode = self.config.camera_awb_mode
         self.camera.iso = self.config.camera.iso
 
