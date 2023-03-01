@@ -774,14 +774,14 @@ class Photobooth:
         logging.debug("PrinterNotFound")
         return False
         # ends the Application
-    def __del__(self):
-        logging.debug("__del__ Function")
-        self.stoppreview()
-        self.camera.close()
-        GPIO.setmode(GPIO.BCM)
-        GPIO.cleanup()
-        del self.imagetemplate1
-        del self.imagetemplate2
+    # def __del__(self):
+    #     logging.debug("__del__ Function")
+    #     self.stoppreview()
+    #     self.camera.close()
+    #     GPIO.setmode(GPIO.BCM)
+    #     GPIO.cleanup()
+    #     del self.imagetemplate1
+    #     del self.imagetemplate2
 
 
 # Main Routine
