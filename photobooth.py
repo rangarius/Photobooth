@@ -41,7 +41,7 @@ class Photobooth:
         self.initStateMachine()
 
         logging.debug("Read Config File")
-        self.config = ConfigParser().readConfiguration()
+        self.config = ConfigParser(logging).readConfiguration()
 
         logging.debug("Config GPIO")
         GPIO.setwarnings(False)
