@@ -96,7 +96,7 @@ class Photobooth:
         self.camera.vflip = self.config.flip_screen_v
         self.camera.awb_gains = (self.config.camera_awb_gains_red, self.config.camera_awb_gains_blue)
         self.camera.awb_mode = self.config.camera_awb_mode
-        self.camera.iso = self.config.camera.iso
+        self.camera.iso = self.config.camera_iso
 
 
 
