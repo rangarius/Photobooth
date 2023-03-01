@@ -73,7 +73,7 @@ class TemplateParser:
         with open(self.path, 'w') as configfile:    # save
             self.cardconfig.write(configfile, True)
 
-    def readCardConfiguration(self):
+    def readCardConfiguration(self) -> [PhotoCard, PhotoCard]:
         logger.debug("Read card Config File")
         self.cardconfig = configparser.ConfigParser()
         self.cardconfig.sections()
@@ -109,6 +109,7 @@ class TemplateParser:
                     logger.debug(self.layout[l].pictures[i])
 
         logger.debug(self.layout[l].__json__)
+        return self.layout
 
 class Config:
     sections = ["Debug", "Paths", "InOut", "Resolution", "Camera"]

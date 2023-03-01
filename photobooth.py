@@ -77,7 +77,8 @@ class Photobooth:
 
 
         # load the Card Layout
-        self.readCardConfiguration(self.config.templates_file_path)
+        self.layoutParser = TemplateParser(self.config.templates_file_path)
+        self.readCardConfiguration()
 
         # Start the Application
         self.on_enter_PowerOn()
@@ -141,7 +142,6 @@ class Photobooth:
 
     # Read the Card Creating Configuration
     def readCardConfiguration(self, path):
-        self.layoutParser = TemplateParser(path)
         self.layout = self.layoutParser.layout
         self.imagetemplate1 = image(filename=self.layout[0].templateFileName)
         self.imagetemplate2 = image(filename=self.layout[1].templateFileName)
