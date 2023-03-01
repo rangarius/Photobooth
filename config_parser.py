@@ -224,6 +224,8 @@ class ConfigParser:
             self.config.screen_photo.append(os.path.join(self.config.screens_abs_file_path,
                                                self.configParser.get("Screens", "screen_photo_" + str(i + 1),
                                                                fallback="ScreenPhoto" + str(i + 1) + ".png")))
+        return self.config
+        
     def parseData(self, data):
         if data is not None:
             if data["photo_path"] is not None:
