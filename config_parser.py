@@ -126,7 +126,7 @@ class Config:
     flip_screen_h = False
     flip_screen_v = False
     camera_awb_mode = "auto"
-    camera_awb_gains = 1.6
+    camera_awb_gains = "1.6"
     camera_iso = 0
     base_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -215,7 +215,7 @@ class ConfigParser:
                                                 self.configParser.get("Screens", "screen_change_paper",
                                                                 fallback="ScreenChangePaper.png"))
         self.config.camera_awb_mode = self.configParser.get("Camera", "camera_awb_mode", fallback="auto")
-        self.config.camera_awb_mode = float(self.configParser.get("Camera", "camera_awb_gains", fallback="1.6"))
+        self.config.camera_awb_mode = self.configParser.get("Camera", "camera_awb_gains", fallback="1.6")
         self.config.camera_iso = int(self.configParser.get("Camera", "camera_iso", fallback="0"))
 
         self.config.screen_photo = []
@@ -225,7 +225,7 @@ class ConfigParser:
                                                self.configParser.get("Screens", "screen_photo_" + str(i + 1),
                                                                fallback="ScreenPhoto" + str(i + 1) + ".png")))
         return self.config
-        
+
     def parseData(self, data):
         if data is not None:
             if data["photo_path"] is not None:
@@ -249,11 +249,11 @@ class ConfigParser:
                 self.config.flip_screen_v = bool(data["flip_screen_v"])
 
             if data["camera_awb_mode"] is not None:
-                self.config.camera_awb_mode = str[data["camera_awb_mode"]]
+                self.config.camera_awb_mode = str([data["camera_awb_mode"]])
             if data["camera_awb_gains"] is not None:
-                self.config.camera_awb_gains = float[data["camera_awb_gains"]]
+                self.config.camera_awb_gains = float([data["camera_awb_gains"]])
             if data["camera_iso"] is not None:
-                self.config.camera_iso = float[data["camera_iso"]]
+                self.config.camera_iso = int([data["camera_iso"]])
 
     def writeConfig(self):
         #
