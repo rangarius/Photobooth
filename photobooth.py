@@ -33,8 +33,8 @@ class Photobooth:
     # define state machine for taking photos
     FSMstates = ['PowerOn', 'Start', 'CountdownPhoto', 'TakePhoto', 'ShowPhoto', 'CreateCard', 'ShowCard', 'PrintCard',
                  'RefillPaper', 'RefillInk', 'Restart']
-    camera = None
-    
+    camera = 
+
     def __init__(self):
         # create the card objects
         self.layout = [PhotoCard(), PhotoCard()]
@@ -59,13 +59,7 @@ class Photobooth:
         self.button1active = False
         self.button2active = False
 
-        logging.debug("Setup Camera")
-        # Setup Camera
-        try:
-            self.camera = picamera.PiCamera()
-        except:
-            logging.CRITICAL("error initializing the camera - exiting")
-            raise SystemExit
+
 
         self.setupCamera()
         self.startpreview()
@@ -89,6 +83,13 @@ class Photobooth:
 
     #setup Camera Settings
     def setupCamera(self):
+        logging.debug("Setup Camera")
+        # Setup Camera
+        try:
+            self.camera = picamera.PiCamera()
+        except:
+            logging.CRITICAL("error initializing the camera - exiting")
+            raise SystemExit
         self.camera.resolution = (self.config.photo_w, self.config.photo_h)
         self.camera.hflip = self.config.flip_screen_h
         self.camera.vflip = self.config.flip_screen_v
@@ -99,8 +100,8 @@ class Photobooth:
     # ends the Application
     def __del__(self):
         logging.debug("__del__ Function")
-        self.stoppreview()
-        self.camera.close()
+        # self.stoppreview()
+        # self.camera.close()
         GPIO.setmode(GPIO.BCM)
         GPIO.cleanup()
         del self.imagetemplate1
