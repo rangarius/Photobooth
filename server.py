@@ -17,7 +17,7 @@ import base64
 class ConfigEncoder(JSONEncoder):
    def default(self, o):
       try:
-          o.__json__
+         return o.__json__()
       except:
          return o.__dict__
 
@@ -90,7 +90,6 @@ def save_config():
 def list_layouts():
    layouts = app.templateParser.layout
    configJSONData = json.dumps(layouts, indent=4, cls=ConfigEncoder)
-   print(configJSONData)
    return configJSONData
 
 @app.route("/layout/save", methods = ["GET"])
@@ -119,7 +118,7 @@ def upload_system_image():
    if request.method == "POST":
       data = request.get_json()
       if data["name"] & data["image_data"]  is not None:
-         with open(app.configParser.config.templates_file_path, data["name"], "wb") as fh:
+         with open(app.configParser.config.screens_abs_file_path, data["name"], "wb") as fh:
             con_basecode = data["image_data"].split(",")[1]
             img_str_encoded = str.encode(con_basecode)
             image_data = base64.urlsafe_b64decode(img_str_encoded)
@@ -135,7 +134,7 @@ def restart_photobooth():
 #####GENERAL HELPERS
 @app.route('/uploads/<name>')
 def download_file(name):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], name)
+    return send_from_directory(app.configParser.config.templates_file_path, name)
 
 ####MOCKING
 

@@ -26,14 +26,12 @@ class PictureOnCard:
             "rotate": self.rotate,
             "posX": self.posX,
             "posY": self.posY,
-            "fileNamePrefix": self.fileNamePrefix,
-            "pictureNumber": self.pictureNumber,
-            "image": self.image
+            "pictureNumber": self.pictureNumber
         }
 
 
     def __getFileName(self):
-        return self.__fileNamePrefix + '_' + str(self.__pictureNumber) + '.jpg'
+        return self.fileNamePrefix + '_' + str(self.pictureNumber) + '.jpg'
 
     def __setFileName(self):
         pass
@@ -71,7 +69,7 @@ class PhotoCard:
         self.cardFileName = ""
         self.__picCount = 0
         self.__fileNamePrefix = ""
-        self.pictures = []  # list for single pictures on card
+        self.pictures: list[PictureOnCard] =  []  # list for single pictures on card
         self.cardImage = ""
         self.layoutInForeground = False
 
@@ -79,10 +77,7 @@ class PhotoCard:
         return {
             "sizeX": self.sizeX,
             "sizeY": self.sizeY,
-            "cardTemplate": self.cardTemplate,
-            "cardFileName": self.cardFileName,
             "picCount": self.__picCount,
-            "fileNamePrefix": self.__fileNamePrefix,
             "pictures": self.pictures,
             "cardImage": self.cardImage,
             "layoutInForeground": self.layoutInForeground
@@ -96,11 +91,11 @@ class PhotoCard:
     def picCount(self, piccount):
         # if piccount is different to current, clear photoobject list and create a new list
         if piccount != self.__picCount:
-            self.__pictures.clear()
+            self.pictures.clear()
 
             # create a new list of photoobjects
             for i in range(1, piccount + 1):
-                self.__pictures.append(PictureOnCard(i))
+                self.pictures.append(PictureOnCard(i))
 
         self.__picCount = piccount
 
