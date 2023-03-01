@@ -102,6 +102,8 @@ class Photobooth:
 
     # Init the State machine controlling the Photobooth
     def initStateMachine(self):
+        t2 = threading.Thread(target=self.start_webserver, args=[])
+        t2.start()
         logging.debug("Init State Machine")
         self.machine = Machine(model=self, states=self.FSMstates, initial='PowerOn', ignore_invalid_triggers=True)
         self.machine.add_transition(source='PowerOn', dest='PowerOn',
@@ -170,7 +172,7 @@ class Photobooth:
         self.button1active = True
 
         # wait until button is released
-        while not GPIO.input(self.pin_button_left):
+        while not GPIO.input(self.config.pin_button_left):
             time.sleep(0.1)
             # if button pressed longer than 5 sec -> shutdown
             if (time.time() - time_now) > 5:
@@ -216,7 +218,7 @@ class Photobooth:
         self.button2active = True
 
         # wait until button is released
-        while not GPIO.input(self.pin_button_right):
+        while not GPIO.input(self.config.pin_button_right):
             time.sleep(0.1)
 
         time.sleep(0.2)
@@ -317,8 +319,7 @@ class Photobooth:
         logging.debug("now on_enter_PowerOn")
         self.overlay_screen_turnOnPrinter = -1
 
-        t2 = threading.Thread(target=self.start_webserver, args=[])
-        t2.start()
+
 
         if not self.CheckPrinter():
             logging.debug("no printer found")
