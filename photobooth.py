@@ -295,7 +295,7 @@ class Photobooth:
         screen.composite(self.layout[1].cardImage, self.config.screen_w - int(1868 / 8) - 131, self.config.screen_h - 184)
 
         # save screen to file for displaying
-        screen.save(filename=self.screen_choose_layout)
+        screen.save(filename=self.config.screen_choose_layout)
 
     # This function captures the photo
     def taking_photo(self, photo_number):
