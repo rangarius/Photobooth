@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import base64
 import configparser 
 import os
 import logging  # logging functions
@@ -12,21 +12,29 @@ REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 class TemplateParser: 
 
     def __init__(self, path) -> None:
-        self.path = os.path.join(path, "card.ini");
+        self.template_path = path
+        self.ini_path = os.path.join(path, "card.ini");
         self.layout = [PhotoCard(), PhotoCard()]
+        self.cardconfig = configparser.ConfigParser()
         self.readCardConfiguration()
 
     def parseData(self, data):
         if data["id"] is not None:
             id = int(data["id"])
             card = self.layout[id-1]
+            if "new_image" in data:
+                image_basecode = data["new_image"]
+                with open(os.path.join(self.template_path, "picture"+str(id)+".png"), "wb") as fh:
+                    con_basecode = image_basecode.split(',')[1]
+                    img_str_encoded = str.encode(con_basecode)
+                    image_data = base64.urlsafe_b64decode(img_str_encoded)
+                    fh.write(image_data)
 
-            if data["piccount"] is not None:
-                card.picCount = int(data["piccount"])
-            if data["layout_in_foreground"] is not None:
-                card.layoutInForeground = bool(data["layout_in_foreground"])
-            if data["cardtemplate"] is not None:
-                card.cardFileName = str("picture" + data["id"]+".png")
+            if data["picCount"] is not None:
+                card.picCount = int(data["picCount"])
+            if data["layoutInForeground"] is not None:
+                card.layoutInForeground = bool(data["layoutInForeground"])
+            card.cardFileName = str("picture" + data["id"]+".png")
 
             if data["pictures"] is not None:
                 pictures = data["pictures"]
@@ -36,11 +44,11 @@ class TemplateParser:
                     if picture is None:
                         picture = PictureOnCard()
                     
-                    picture.resizeX = int(pic_data["resize_image_x"])
-                    picture.resizeY = int(pic_data["resize_image_y"])
-                    picture.rotate = int(pic_data["rotate_image"])
-                    picture.posX = int(pic_data["position_image_x"])
-                    picture.posY = int(pic_data["position_image_y"])
+                    picture.resizeX = int(pic_data["resizeX"])
+                    picture.resizeY = int(pic_data["resizeY"])
+                    picture.rotate = int(pic_data["rotate"])
+                    picture.posX = int(pic_data["posX"])
+                    picture.posY = int(pic_data["posY"])
 
                     card.pictures[i] = picture
 
@@ -48,7 +56,7 @@ class TemplateParser:
     def writeCardConfig(self):
         for i in range(0,2):
             id = i + 1
-            layout_str = "Layout"+id
+            layout_str = "Layout"+str(id)
             card = self.layout[i]
 
             if not self.cardconfig.has_section(layout_str):
@@ -68,23 +76,23 @@ class TemplateParser:
                 self.cardconfig.set(layout_str, "position_image_y_"+str(pic_id), str(picture.posY))
                 self.cardconfig.set(layout_str, "rotate_image_"+str(pic_id), str(picture.rotate))
 
-        with open(self.path, 'w') as configfile:    # save
+        with open(self.ini_path, 'w') as configfile:    # save
             self.cardconfig.write(configfile, True)
 
     def readCardConfiguration(self) -> list[PhotoCard]:
         logger.debug("Read card Config File")
-        self.cardconfig = configparser.ConfigParser()
+        
         self.cardconfig.sections()
 
-        if self.path is not None:
+        if self.ini_path is not None:
             logger.debug("start reading")
-            self.cardconfig.read(self.path)
+            self.cardconfig.read(self.ini_path)
 
             for l in range(0, 2):
                 layout_str = "Layout"+str(l+1)
                 # layout 1 configuration
                 self.layout[l].picCount = int(self.cardconfig.get(layout_str, "piccount", fallback="0"))
-                self.layout[l].cardFileName = os.path.join(os.path.split(self.path)[0],
+                self.layout[l].cardFileName = os.path.join(self.template_path,
                 "picture"+str(l+1)+".png")
 
                 self.layout[l].layoutInForeground = self.cardconfig.getboolean(layout_str, "layout_in_foreground", fallback=False)
@@ -129,6 +137,50 @@ class Config:
     camera_awb_gains_blue = 1.6
     camera_iso = 0
     base_path = os.path.dirname(os.path.realpath(__file__))
+    screen_turnOnPrinter = "ScreenTurnOnPrinter.png"
+    screen_logo = "ScreenLogo.png"
+    screen_choose_layout = "ScreenChooseLayout.png"
+    screen_countdown_0 ="ScreenCountdown0.png"
+    screen_countdown_1 = "ScreenCountdown1.png"
+    screen_countdown_2 =  "ScreenCountdown2.png"
+    screen_countdown_3 = "ScreenCountdown3.png"
+    screen_countdown_4 = "ScreenCountdown4.png"
+    screen_countdown_5 = "ScreenCountdown5.png"
+    screen_black = "ScreenBlack.png"
+    screen_again_next = "ScreenAgainNext.png"
+    screen_wait = "ScreenWait.png"
+    screen_print = "ScreenPrint.png"
+    screen_print_again = "ScreenPrintagain.png"
+    screen_change_ink = "ScreenChangeInk.png"
+    screen_change_paper = "ScreenChangePaper.png"
+    camera_awb_mode = "auto"
+    screen_photo = []
+    
+    for i in range(0, 9):
+        screen_photo.append("ScreenPhoto" + str(i + 1) + ".png")
+
+    
+    def __json__(self):
+        return {
+            "debug": self.debug,
+            "printPicsEnable": self.printPicsEnable,
+            "photo_abs_file_path": self.photo_abs_file_path,
+            "screens_abs_file_path": self.screens_abs_file_path,
+            "templates_file_path": self.templates_file_path,
+            "pin_button_left": self.pin_button_left,
+            "pin_button_right": self.pin_button_right,
+            "photo_w": self.photo_w,
+            "photo_h": self.photo_h,
+            "screen_w": self.screen_w,
+            "screen_h": self.screen_h,
+            "flip_screen_h": self.flip_screen_h,
+            "flip_screen_v": self.flip_screen_v,
+            "camera_awb_mode": self.camera_awb_mode,
+            "camera_awb_gains_red": self.camera_awb_gains_red,
+            "camera_awb_gains_blue": self.camera_awb_gains_blue,
+            "camera_iso": self.camera_iso,
+            "base_path": self.base_path
+        }
 
 
 class ConfigParser: 
@@ -145,6 +197,7 @@ class ConfigParser:
         logging.debug("Read Config File")
 
         if self.configParser.getboolean("Debug", "debug", fallback=True) == True:
+            self.config.debug = self.configParser.getboolean("Debug", "debug", fallback=True)
             logging.basicConfig(level=logging.DEBUG)
         else:
             logging.basicConfig(level=logging.WARNING)
@@ -262,30 +315,32 @@ class ConfigParser:
     def writeConfig(self):
         #
         for i in range(0, len(self.config.sections)):
-            if not self.cardconfig.has_section(self.config.sections[i]):
-                self.cardconfig.add_section(self.config.sections[i])
+            if not self.configParser.has_section(self.config.sections[i]):
+                self.configParser.add_section(self.config.sections[i])
+
+        self.configParser.set("Debug", "print", str(self.config.debug))
  
-        self.cardconfig.set("Paths", "photo_path", self.config.photo_abs_file_path[len(REAL_PATH):])
-        self.cardconfig.set("Paths", "screen_path", self.config.screens_abs_file_path[len(REAL_PATH):])
-        self.cardconfig.set("Paths", "templates_path", self.config.templates_file_path[len(REAL_PATH):])
+        self.configParser.set("Paths", "photo_path", self.config.photo_abs_file_path[len(REAL_PATH):])
+        self.configParser.set("Paths", "screen_path", self.config.screens_abs_file_path[len(REAL_PATH):])
+        self.configParser.set("Paths", "templates_path", self.config.templates_file_path[len(REAL_PATH):])
 
-        self.cardconfig.set("InOut", "pin_button_left", str(self.config.pin_button_left))
-        self.cardconfig.set("InOut", "pin_button_right", str(self.config.pin_button_right))
+        self.configParser.set("InOut", "pin_button_left", str(self.config.pin_button_left))
+        self.configParser.set("InOut", "pin_button_right", str(self.config.pin_button_right))
 
-        self.cardconfig.set("Resolution", "photo_w", str(self.config.photo_w))
-        self.cardconfig.set("Resolution", "photo_h", str(self.config.photo_h))
-        self.cardconfig.set("Resolution", "screen_w", str(self.config.screen_w))
-        self.cardconfig.set("Resolution", "screen_h", str(self.config.screen_h))
-        self.cardconfig.set("Resolution", "flip_screen_h", str(self.config.flip_screen_h))
-        self.cardconfig.set("Resolution", "flip_screen_v", str(self.config.flip_screen_v))
+        self.configParser.set("Resolution", "photo_w", str(self.config.photo_w))
+        self.configParser.set("Resolution", "photo_h", str(self.config.photo_h))
+        self.configParser.set("Resolution", "screen_w", str(self.config.screen_w))
+        self.configParser.set("Resolution", "screen_h", str(self.config.screen_h))
+        self.configParser.set("Resolution", "flip_screen_h", str(self.config.flip_screen_h))
+        self.configParser.set("Resolution", "flip_screen_v", str(self.config.flip_screen_v))
 
-        self.cardconfig.set("Camera", "camera_awb_mode,", str(self.config.camera_awb_mode))
-        self.cardconfig.set("Camera", "camera_awb_gains_red", str(self.config.camera_awb_gains_red))
-        self.cardconfig.set("Camera", "camera_awb_gains_blue", str(self.config.camera_awb_gains_blue))
+        self.configParser.set("Camera", "camera_awb_mode,", str(self.config.camera_awb_mode))
+        self.configParser.set("Camera", "camera_awb_gains_red", str(self.config.camera_awb_gains_red))
+        self.configParser.set("Camera", "camera_awb_gains_blue", str(self.config.camera_awb_gains_blue))
 
-        self.cardconfig.set("Camera", "camera_iso,", str(self.config.camera_iso))
+        self.configParser.set("Camera", "camera_iso,", str(self.config.camera_iso))
 
         with open(self.path, 'w') as configfile:    # save
-            self.cardconfig.write(configfile, True)
+            self.configParser.write(configfile, True)
         
     

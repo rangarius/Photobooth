@@ -1,5 +1,7 @@
 import os
 import json
+import base64
+
 from json import JSONEncoder
 from flask import Flask, request, render_template, request, send_from_directory, flash, jsonify
 from werkzeug.utils import secure_filename
@@ -9,7 +11,7 @@ from datetime import datetime  # datetime routine
 import secrets
 from pathlib import Path
 from flask_cors import CORS
-import base64
+
         
 
 
@@ -33,7 +35,7 @@ class WebServer(Flask):
    def setup_photobooth(self, photobooth, logging):
       #self.photobooth = photobooth
       self.photobooth= photobooth
-      self.logging = logging
+      self.logging = logging 
 
 
       logging.debug("Setting Up Config Parser")
@@ -102,16 +104,14 @@ def save_layout(id):
 def edit_layout(id):
    if request.method == "POST":
       data = request.get_json()
-      if "new_image" in data:
-         image_basecode = data["new_image"]
-         with open(os.path.join(app.configParser.config.templates_file_path, "picture_"+str(id)+".png"), "wb") as fh:
-            con_basecode = image_basecode.split(',')[1]
-            img_str_encoded = str.encode(con_basecode)
-            image_data = base64.urlsafe_b64decode(img_str_encoded)
-            fh.write(image_data)
-      app.templateParser.writeCardConfig()
+      app.templateParser.parseData(data)
       app.photobooth.to_Start()
    return jsonify({"msg": "success"})
+
+
+@app.route("/systemImage/<name>", methods=["GET"])
+def get_system_image(name):
+   return send_from_directory(app.configParser.config.screens_abs_file_path, name)
 
 @app.route("/upload/systemImage", methods=["POST"])
 def upload_system_image():
@@ -143,7 +143,7 @@ class Photobooth:
    def __init__(self) -> None:
       pass
 
-   def to_Start():
+   def to_Start(self):
       pass 
    
 
@@ -180,3 +180,4 @@ if __name__ == "__main__":
 
     finally:
         logging.debug("logfile closed")
+
