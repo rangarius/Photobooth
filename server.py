@@ -117,13 +117,14 @@ def get_system_image(name):
 def upload_system_image():
    if request.method == "POST":
       data = request.get_json()
-      if data["name"] & data["image_data"]  is not None:
-         with open(app.configParser.config.screens_abs_file_path, data["name"], "wb") as fh:
+      if data["name"] and data["image_data"]  is not None:
+         with open(os.path.join(app.configParser.config.screens_abs_file_path, data["name"] + ".png"), "wb") as fh:
             con_basecode = data["image_data"].split(",")[1]
             img_str_encoded = str.encode(con_basecode)
             image_data = base64.urlsafe_b64decode(img_str_encoded)
             fh.write(image_data)
             app.photobooth.to_Start()
+         return "true"
 
 #####PHOTOBOOTH OPERATIONS
 @app.route('/restart', methods = ['GET'])
