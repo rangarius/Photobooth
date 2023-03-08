@@ -80,7 +80,6 @@ class Photobooth:
         self.layoutParser = TemplateParser(self.config.templates_file_path)
         # t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
         # t1.start()
-        self.readCardConfiguration()
         self.on_enter_PowerOn()
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
@@ -324,7 +323,8 @@ class Photobooth:
     # Power On Check State
     # check if printer is connected and turned on
     def on_enter_PowerOn(self):
-        
+        self.readCardConfiguration()
+
 
         logging.debug("now on_enter_PowerOn")
         self.overlay_screen_turnOnPrinter = -1

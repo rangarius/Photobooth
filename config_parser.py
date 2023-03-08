@@ -53,7 +53,7 @@ class TemplateParser:
                     picture.posY = int(pic_data["posY"])
 
                     card.pictures[i] = picture
-            self.layout[id-1] = card
+            self.writeCardConfig()
 
     def writeCardConfig(self):
         for i in range(0,2):
