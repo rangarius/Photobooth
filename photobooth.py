@@ -82,10 +82,10 @@ class Photobooth:
         logging.debug("Reading Config finished, starting webserver")
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
+        t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
+        t1.start()
         # Start the Application
-        logging.debug("Powering on")
 
-        self.on_enter_PowerOn()
 
     #setup Camera Settings
     def setupCamera(self):
