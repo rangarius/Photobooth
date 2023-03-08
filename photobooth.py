@@ -79,8 +79,12 @@ class Photobooth:
         # load the Card Layout
         self.layoutParser = TemplateParser(self.config.templates_file_path)
         self.readCardConfiguration()
-
+        logging.debug("Reading Config finished, starting webserver")
+        t2 = threading.Thread(target=self.start_webserver, args=[])
+        t2.start()
         # Start the Application
+        logging.debug("Powering on")
+
         self.on_enter_PowerOn()
 
     #setup Camera Settings
@@ -103,8 +107,7 @@ class Photobooth:
 
     # Init the State machine controlling the Photobooth
     def initStateMachine(self):
-        t2 = threading.Thread(target=self.start_webserver, args=[])
-        t2.start()
+
         logging.debug("Init State Machine")
         self.machine = Machine(model=self, states=self.FSMstates, initial='PowerOn', ignore_invalid_triggers=True)
         self.machine.add_transition(source='PowerOn', dest='PowerOn',
@@ -343,7 +346,6 @@ class Photobooth:
 
     # Start State -> Show initail Screen
     def on_enter_Start(self):
-        self.createCardLayoutPreview()
 
         self.button1active = False
         self.button2active = False
