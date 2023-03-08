@@ -101,7 +101,7 @@ def list_layouts():
    return configJSONData
 
 @app.route("/layout/save", methods = ["GET"])
-def save_layout(id):
+def save_layout():
    app.templateParser.writeCardConfig()
    app.photobooth.on_enter_PowerOn()
    return jsonify({"msg": "success"})
