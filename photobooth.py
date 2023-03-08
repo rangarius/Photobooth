@@ -83,6 +83,7 @@ class Photobooth:
         self.on_enter_PowerOn()
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
+        self.readCardConfiguration()
 
         # Start the Application
 
@@ -345,7 +346,6 @@ class Photobooth:
         logging.debug("now on_exit_PowerOn")
 
         # create the preview of the layouts
-        self.readCardConfiguration()
         self.createCardLayoutPreview()
 
         # remove overlay "turn on printer", if still on display
