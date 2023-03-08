@@ -80,10 +80,12 @@ class Photobooth:
         self.layoutParser = TemplateParser(self.config.templates_file_path)
         self.readCardConfiguration()
         logging.debug("Reading Config finished, starting webserver")
-        t2 = threading.Thread(target=self.start_webserver, args=[])
-        t2.start()
         t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
         t1.start()
+
+        t2 = threading.Thread(target=self.start_webserver, args=[])
+        t2.start()
+
         # Start the Application
 
 
