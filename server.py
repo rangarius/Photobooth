@@ -45,9 +45,7 @@ class WebServer(Flask):
       except:
          logging.debug("Got a local config object")
          self.configParser = ConfigParser(self.logging)
-      
-      self.configParser.readConfiguration()
-      
+            
       logging.debug("Setting Up Template Parser")
       try:
          logging.debug("Got a photobooth layout object")
@@ -55,8 +53,6 @@ class WebServer(Flask):
       except: 
          logging.debug("Got a local layout object")
          self.templateParser = TemplateParser(self.configParser.config.templates_file_path)
-
-      self.templateParser.readCardConfiguration()
       # app.config[‘MAX_CONTENT_PATH’] = 
 
       

@@ -79,7 +79,7 @@ class TemplateParser:
         with open(self.ini_path, 'w') as configfile:    # save
             self.cardconfig.write(configfile, True)
 
-    def readCardConfiguration(self) -> list[PhotoCard]:
+    def readCardConfiguration(self):
         logger.debug("Read card Config File")
         
         self.cardconfig.sections()
@@ -193,7 +193,7 @@ class ConfigParser:
         self.config = Config()
         self.readConfiguration()
 
-    def readConfiguration(self) -> Config:
+    def readConfiguration(self):
         logging.debug("Read Config File")
 
         if self.configParser.getboolean("Debug", "debug", fallback=True) == True:
