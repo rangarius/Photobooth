@@ -143,8 +143,8 @@ class Photobooth:
     # Read the Card Creating Configuration
     def readCardConfiguration(self):
         self.layout = self.layoutParser.layout
-        self.imagetemplate1 = image(filename=self.layout[0].templateFileName)
-        self.imagetemplate2 = image(filename=self.layout[1].templateFileName)
+        self.imagetemplate1 = image(filename=self.layout[0].cardTemplate)
+        self.imagetemplate2 = image(filename=self.layout[1].cardTemplate)
 
     # read the global configuration, folders, resolution....
     #self.config = 
