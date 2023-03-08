@@ -418,7 +418,7 @@ class Photobooth:
         # show last photo and menu
         self.overlay_screen_black = self.overlay_image(self.config.screen_black, 0, 5)
         self.overlay_last_photo = self.overlay_image(self.lastfilename, 0, 6)
-        self.overlay_photo_number = self.overlay_image_transparency(self.screen_photo[self.photonumber - 1], 0, 8)
+        self.overlay_photo_number = self.overlay_image_transparency(self.config.screen_photo[self.photonumber - 1], 0, 8)
 
         # log filename
         logging.debug(str(self.lastfilename))
