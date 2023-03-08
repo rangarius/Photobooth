@@ -39,13 +39,17 @@ class WebServer(Flask):
 
 
       logging.debug("Setting Up Config Parser")
-      if self.configParser is None:
+      if self.photobooth.configParser is None:
          self.configParser = ConfigParser(self.logging)
+      else: 
+         self.configParser = self.photobooth.configParser
       self.configParser.readConfiguration()
       
       logging.debug("Setting Up Template Parser")
-      if self.templateParser is None: 
+      if self.photobooth.templateParser is None: 
          self.templateParser = TemplateParser(self.configParser.config.templates_file_path)
+      else: 
+         self.templateParser = self.photobooth.templateParser
       self.templateParser.readCardConfiguration()
       # app.config[‘MAX_CONTENT_PATH’] = 
 
