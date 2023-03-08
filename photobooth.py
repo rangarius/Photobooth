@@ -507,7 +507,7 @@ class Photobooth:
         self.stoppreview()
         self.startpreview()
 
-        if self.printPicsEnable == False:
+        if self.config.printPicsEnable == False:
             logging.debug("print enable = false")
 
         # print photo?
