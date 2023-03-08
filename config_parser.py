@@ -34,6 +34,8 @@ class TemplateParser:
                 card.picCount = int(data["picCount"])
             if data["layoutInForeground"] is not None:
                 card.layoutInForeground = bool(data["layoutInForeground"])
+                logger.debug("Layout is now: ")
+                logger.debug(card.layoutInForeground)
             card.cardFileName = str("picture" + data["id"]+".png")
 
             if data["pictures"] is not None:
