@@ -113,7 +113,7 @@ class TemplateParser:
                     self.layout[l].pictures[i].color = self.cardconfig.get(layout_str, "color_image_" + str(i + 1), fallback="color")
 
                     logger.debug(self.layout[l].pictures[i])
-        logger.debug("Done reading2")
+        return self.layout
 
 class Config:
     sections = ["Debug", "Paths", "InOut", "Resolution", "Camera"]
