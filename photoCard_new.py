@@ -107,7 +107,7 @@ class PhotoCard:
     def __setFileNamePrefix(self, name):
         self.__fileNamePrefix = name
         self.cardFileName = self.fileNamePrefix + '_card' + '.jpg'
-        for x in self.__pictures:
+        for x in self.pictures:
             x.fileNamePrefix = name
 
     fileNamePrefix = property(__getFileNamePrefix, __setFileNamePrefix)
