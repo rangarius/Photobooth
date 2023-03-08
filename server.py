@@ -39,17 +39,23 @@ class WebServer(Flask):
 
 
       logging.debug("Setting Up Config Parser")
-      if self.photobooth.configParser is None:
-         self.configParser = ConfigParser(self.logging)
-      else: 
+      try: 
+         logging.debug("Got a photobooth config object")
          self.configParser = self.photobooth.configParser
+      except:
+         logging.debug("Got a local config object")
+         self.configParser = ConfigParser(self.logging)
+      
       self.configParser.readConfiguration()
       
       logging.debug("Setting Up Template Parser")
-      if self.photobooth.templateParser is None: 
-         self.templateParser = TemplateParser(self.configParser.config.templates_file_path)
-      else: 
+      try:
+         logging.debug("Got a photobooth layout object")
          self.templateParser = self.photobooth.templateParser
+      except: 
+         logging.debug("Got a local layout object")
+         self.templateParser = TemplateParser(self.configParser.config.templates_file_path)
+
       self.templateParser.readCardConfiguration()
       # app.config[‘MAX_CONTENT_PATH’] = 
 
