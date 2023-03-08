@@ -343,6 +343,8 @@ class Photobooth:
 
     # Start State -> Show initail Screen
     def on_enter_Start(self):
+        self.createCardLayoutPreview()
+
         self.button1active = False
         self.button2active = False
         
