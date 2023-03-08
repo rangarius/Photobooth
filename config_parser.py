@@ -16,7 +16,6 @@ class TemplateParser:
         self.ini_path = os.path.join(path, "card.ini");
         self.layout = [PhotoCard(), PhotoCard()]
         self.cardconfig = configparser.ConfigParser()
-        self.readCardConfiguration()
 
     def parseData(self, data):
         if data["id"] is not None:
