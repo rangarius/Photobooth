@@ -323,7 +323,7 @@ class Photobooth:
     # Power On Check State
     # check if printer is connected and turned on
     def on_enter_PowerOn(self):
-        self.readCardConfiguration()
+        
 
         logging.debug("now on_enter_PowerOn")
         self.overlay_screen_turnOnPrinter = -1
@@ -345,6 +345,7 @@ class Photobooth:
         logging.debug("now on_exit_PowerOn")
 
         # create the preview of the layouts
+        self.readCardConfiguration()
         self.createCardLayoutPreview()
 
         # remove overlay "turn on printer", if still on display
@@ -352,10 +353,7 @@ class Photobooth:
 
     # Start State -> Show initail Screen
     def on_enter_Start(self):
-        try:
-            self.remove_overlay(self.overlay_choose_layout)
-        except:
-            logging.debug("No overlay to remove")
+
         self.button1active = False
         self.button2active = False
         
