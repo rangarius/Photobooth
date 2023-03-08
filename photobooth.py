@@ -79,9 +79,9 @@ class Photobooth:
         # load the Card Layout
         self.layoutParser = TemplateParser(self.config.templates_file_path)
         self.readCardConfiguration()
-        t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
-        t1.start()
-
+        # t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
+        # t1.start()
+        self.on_enter_PowerOn()
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
 
