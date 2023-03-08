@@ -94,6 +94,8 @@ class TemplateParser:
                 self.layout[l].picCount = int(self.cardconfig.get(layout_str, "piccount", fallback="0"))
                 self.layout[l].cardFileName = os.path.join(self.template_path,
                 "picture"+str(l+1)+".png")
+                self.layout[l].cardTemplate = os.path.join(self.template_path,
+                "picture"+str(l+1)+".png")
 
                 self.layout[l].layoutInForeground = self.cardconfig.getboolean(layout_str, "layout_in_foreground", fallback=False)
                 # manipulation of photos for Layout 1
