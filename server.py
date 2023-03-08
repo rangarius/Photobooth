@@ -103,7 +103,7 @@ def list_layouts():
 @app.route("/layout/save", methods = ["GET"])
 def save_layout():
    app.templateParser.writeCardConfig()
-   app.photobooth.on_enter_PowerOn()
+   app.photobooth.to_PowerOn()
    return jsonify({"msg": "success"})
 
 @app.route("/layout/edit/<id>", methods = ["POST"])
@@ -111,7 +111,7 @@ def edit_layout(id):
    if request.method == "POST":
       data = request.get_json()
       app.templateParser.parseData(data)
-      app.photobooth.on_enter_PowerOn()
+      app.photobooth.to_PowerOn()
    return jsonify({"msg": "success"})
 
 
@@ -129,7 +129,7 @@ def upload_system_image():
             img_str_encoded = str.encode(con_basecode)
             image_data = base64.urlsafe_b64decode(img_str_encoded)
             fh.write(image_data)
-            app.photobooth.on_enter_PowerOn()
+            app.photobooth.to_PowerOn()
          return "true"
 
 #####PHOTOBOOTH OPERATIONS
