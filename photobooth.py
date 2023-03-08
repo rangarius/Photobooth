@@ -195,7 +195,7 @@ class Photobooth:
             # from state start -> choose layout 1
             if self.state == "Start":
                 logging.debug("State == Start -> Set Photonumbers")
-                self.MaxPhotos = self.layout[0].piccount
+                self.MaxPhotos = self.layout[0].picCount
                 self.current_Layout = 1
                 self.photonumber = 1
 
@@ -238,7 +238,7 @@ class Photobooth:
             # from state start -> choose layout 2
             if self.state == "Start":
                 logging.debug("State == Start -> Set Photonumbers")
-                self.MaxPhotos = self.layout[1].piccount
+                self.MaxPhotos = self.layout[1].picCount
                 self.current_Layout = 2
                 self.photonumber = 1
 
@@ -267,10 +267,10 @@ class Photobooth:
         logging.debug("createCardLayoutPreview")
 
         logging.debug(self.layout[0])
-        logging.debug(self.layout[0].piccount)
+        logging.debug(self.layout[0].picCount)
 
         # Load Preview Pics
-        for i in range(0, self.layout[0].piccount):
+        for i in range(0, self.layout[0].picCount):
             logging.debug(self.layout[0].picture[i])
             self.layout[0].picture[i].img = image(
                 filename = os.path.join(REAL_PATH, 'Media/demo' + str(i + 1) + '.jpg'))
@@ -278,7 +278,7 @@ class Photobooth:
 
 
         # Load Preview Pics
-        for i in range(0, self.layout[1].piccount):
+        for i in range(0, self.layout[1].picCount):
             logging.debug(self.layout[1].picture[i])
             self.layout[1].picture[i].img = image(
                 filename = os.path.join(REAL_PATH, 'Media/demo' + str(i + 1) + '.jpg'))
