@@ -148,7 +148,7 @@ class Photobooth:
     def readCardConfiguration(self):
         self.layout = self.layoutParser.layout
         logging.debug("Reading Config finished, starting webserver")
-        logging.debug(self.layout[0])
+        logging.debug(self.layout[0].cardTemplate)
         self.imagetemplate1 = image(filename=self.layout[0].cardTemplate)
         logging.debug(self.imagetemplate1)
         self.imagetemplate2 = image(filename=self.layout[1].cardTemplate)
