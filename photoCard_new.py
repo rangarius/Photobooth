@@ -115,7 +115,7 @@ class PhotoCard:
 
     # reload the card background image
     def loadImageTemplate(self):
-        self.cardImage = image(filename=self.templateFileName).clone()
+        self.cardImage = image(filename=self.cardTemplate).clone()
 
     # create an empty card, if template is in foreground
     def createEmptyCard(self):
@@ -137,7 +137,7 @@ class PhotoCard:
 
         # if Layout is in foreground, overlay it last
         if self.layoutInForeground:
-            self.cardImage.composite(image(filename=self.templateFileName).clone(), 0, 0)
+            self.cardImage.composite(image(filename=self.cardTemplate).clone(), 0, 0)
 
         self.cardImage.resize(int(1868), int(1261))
 
