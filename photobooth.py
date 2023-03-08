@@ -271,18 +271,18 @@ class Photobooth:
 
         # Load Preview Pics
         for i in range(0, self.layout[0].picCount):
-            logging.debug(self.layout[0].picture[i])
-            self.layout[0].picture[i].img = image(
+            logging.debug(self.layout[0].pictures[i])
+            self.layout[0].pictures[i].img = image(
                 filename = os.path.join(REAL_PATH, 'Media/demo' + str(i + 1) + '.jpg'))
-            self.layout[0].picture[i].ProcessImage()
+            self.layout[0].pictures[i].ProcessImage()
 
 
         # Load Preview Pics
         for i in range(0, self.layout[1].picCount):
-            logging.debug(self.layout[1].picture[i])
-            self.layout[1].picture[i].img = image(
+            logging.debug(self.layout[1].pictures[i])
+            self.layout[1].pictures[i].img = image(
                 filename = os.path.join(REAL_PATH, 'Media/demo' + str(i + 1) + '.jpg'))
-            self.layout[1].picture[i].ProcessImage()
+            self.layout[1].pictures[i].ProcessImage()
 
         self.layout[0].processCard()
         self.layout[1].processCard()
@@ -303,9 +303,9 @@ class Photobooth:
     def taking_photo(self, photo_number):
         logging.debug("Taking Photo")
         # get the filename also for later use
-        self.lastfilename = self.layout[self.current_Layout - 1].picture[photo_number - 1].fileName
+        self.lastfilename = self.layout[self.current_Layout - 1].pictures[photo_number - 1].fileName
 
-        ## take a picture
+        ## take a pictures
         self.camera.capture(self.lastfilename)
         logging.debug("Photo (" + str(photo_number) + ") saved: " + self.lastfilename)
 
@@ -358,12 +358,12 @@ class Photobooth:
         self.layout[1].fileNamePrefix = self.get_base_filename_for_images()
         self.remove_overlay(self.overlay_choose_layout)
 
-    # countdown to zero and take picture
+    # countdown to zero and take pictures
     def on_enter_CountdownPhoto(self):
         logging.debug("now on_enter_CountdownPhoto")
 
-        #set the picture color
-        self.setCameraColor(self.layout[self.current_Layout - 1].picture[self.photonumber - 1].color)
+        #set the pictures color
+        self.setCameraColor(self.layout[self.current_Layout - 1].pictures[self.photonumber - 1].color)
 
         # print the countdown
         self.overlay_screen_Countdown = self.overlay_image_transparency(self.config.screen_countdown_5, 0, 7)
@@ -429,8 +429,8 @@ class Photobooth:
         logging.debug(self.current_Layout)
 
         # load the image to the layoutobject and process (resize / rotate the image)
-        self.layout[self.current_Layout - 1].picture[self.photonumber - 1].LoadImage()
-        self.layout[self.current_Layout - 1].picture[self.photonumber - 1].ProcessImage()
+        self.layout[self.current_Layout - 1].pictures[self.photonumber - 1].LoadImage()
+        self.layout[self.current_Layout - 1].pictures[self.photonumber - 1].ProcessImage()
 
         self.overlay_again_next = self.overlay_image_transparency(self.config.screen_again_next, 0, 7)
 
