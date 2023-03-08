@@ -114,7 +114,6 @@ class TemplateParser:
 
                     logger.debug(self.layout[l].pictures[i])
 
-        logger.debug(self.layout[l].__json__)
         return self.layout
 
 class Config:
