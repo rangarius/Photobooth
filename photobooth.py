@@ -78,8 +78,7 @@ class Photobooth:
 
         # load the Card Layout
         self.layoutParser = TemplateParser(self.config.templates_file_path)
-        self.layout = self.readCardConfiguration()
-        logging.debug("Reading Config finished, starting webserver")
+        self.readCardConfiguration()
         t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
         t1.start()
 
@@ -148,6 +147,8 @@ class Photobooth:
     # Read the Card Creating Configuration
     def readCardConfiguration(self):
         self.layout = self.layoutParser.layout
+        logging.debug("Reading Config finished, starting webserver")
+
         self.imagetemplate1 = image(filename=self.layout[0].cardTemplate)
         self.imagetemplate2 = image(filename=self.layout[1].cardTemplate)
 
