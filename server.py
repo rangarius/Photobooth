@@ -76,6 +76,10 @@ except FileNotFoundError:
       app.config['SECRET_KEY'] = app.secret_key
 
 #####CONFIG OPERATIONS
+@app.route("/", methods=["GET"])
+def iamabox():
+   return jsonify({"photobox": "true"})
+
 @app.route('/config', methods = ['GET', 'POST'])
 def list_config():
    if request.method == "GET": 
