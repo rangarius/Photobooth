@@ -40,19 +40,23 @@ class WebServer(Flask):
 
       logging.debug("Setting Up Config Parser")
       try: 
-         logging.debug("Got a photobooth config object")
          self.configParser = self.photobooth.configParser
       except:
          logging.debug("Got a local config object")
          self.configParser = ConfigParser(self.logging)
+      else:
+         logging.debug("Got a photobooth config object")
+
             
       logging.debug("Setting Up Template Parser")
       try:
-         logging.debug("Got a photobooth layout object")
          self.templateParser = self.photobooth.templateParser
       except: 
          logging.debug("Got a local layout object")
          self.templateParser = TemplateParser(self.configParser.config.templates_file_path)
+      else:
+         logging.debug("Got a photobooth layout object")
+
       # app.config[‘MAX_CONTENT_PATH’] = 
 
       
