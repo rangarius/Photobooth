@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Global Config{% endblock %}
+{% block content %}
+<h1>Global Config</h1>
+
+{% if msg == "saved" %}
+<div class="alert alert-success">✓ Configuration saved to config.ini</div>
+{% endif %}
+
+<form method="POST" action="/ui/config/save">
+  <div class="card">
+    <h2>System</h2>
+    <div class="form-row">
+      <label>Debug Mode <small>Verbose logging to /Log/</small></label>
+      <input type="checkbox" name="debug" {% if cfg.debug %}checked{% endif %}>
+    </div>
+    <div class="form-row">
+      <label>Print Enabled <small>Send cards to CUPS printer</small></label>
+      <input type="checkbox" name="printPicsEnable" {% if cfg.printPicsEnable %}checked{% endif %}>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Photo Resolution</h2>
+    <div class="form-row">
+      <label>Width (px)</label>
+      <input type="number" name="photo_w" value="{{ cfg.photo_w }}" min="640" max="4096" step="1">
+    </div>
+    <div class="form-row">
+      <label>Height (px)</label>
+      <input type="number" name="photo_h" value="{{ cfg.photo_h }}" min="480" max="3040" step="1">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Screen Resolution</h2>
+    <div class="form-row">
+      <label>Width (px) <small>Must match display framebuffer</small></label>
+      <input type="number" name="screen_w" value="{{ cfg.screen_w }}" min="320" max="2560" step="1">
+    </div>
+    <div class="form-row">
+      <label>Height (px)</label>
+      <input type="number" name="screen_h" value="{{ cfg.screen_h }}" min="240" max="1440" step="1">
+    </div>
+    <div class="form-row">
+      <label>Flip Horizontal</label>
+      <input type="checkbox" name="flip_screen_h" {% if cfg.flip_screen_h %}checked{% endif %}>
+    </div>
+    <div class="form-row">
+      <label>Flip Vertical</label>
+      <input type="checkbox" name="flip_screen_v" {% if cfg.flip_screen_v %}checked{% endif %}>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>GPIO Buttons (BCM Pin Numbers)</h2>
+    <div class="form-row">
+      <label>Left Button Pin <small>Default: 23</small></label>
+      <input type="number" name="pin_button_left" value="{{ cfg.pin_button_left }}" min="1" max="40">
+    </div>
+    <div class="form-row">
+      <label>Right Button Pin <small>Default: 24</small></label>
+      <input type="number" name="pin_button_right" value="{{ cfg.pin_button_right }}" min="1" max="40">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Web UI Authentication</h2>
+    <p style="font-size:0.85em;color:#888;margin-bottom:14px">Leave both fields empty to disable authentication.</p>
+    <div class="form-row">
+      <label>Username</label>
+      <input type="text" name="webserver_user" value="{{ cfg.webserver_user }}" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label>Password <small>Leave blank to keep current</small></label>
+      <input type="password" name="webserver_password" placeholder="(unchanged)" autocomplete="new-password">
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button type="submit" class="btn btn-primary">💾 Save to config.ini</button>
+  </div>
+</form>
+{% endblock %}

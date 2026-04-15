@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Camera{% endblock %}
+{% block content %}
+<h1>Camera Settings</h1>
+
+{% if msg == "saved" %}
+<div class="alert alert-success">✓ Camera config saved to config.ini</div>
+{% endif %}
+<div id="apply-msg"></div>
+
+<form method="POST" action="/ui/camera/save" id="cam-form">
+  <div class="card">
+    <h2>Exposure</h2>
+    <div class="form-row">
+      <label>ISO <small>0 = automatic</small></label>
+      <select name="camera_iso" id="iso">
+        {% for iso in [0, 100, 200, 400, 800] %}
+        <option value="{{ iso }}" {% if cfg.camera_iso == iso %}selected{% endif %}>
+          {{ "Auto" if iso == 0 else iso }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>White Balance</h2>
+    <div class="form-row">
+      <label>AWB Mode</label>
+      <select name="camera_awb_mode" id="awb_mode">
+        {% for mode in awb_modes %}
+        <option value="{{ mode }}" {% if cfg.camera_awb_mode == mode %}selected{% endif %}>
+          {{ mode | capitalize }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row" id="gains-row">
+      <label>Gain — Red <small>Only used when AWB = off</small></label>
+      <input type="range" name="camera_awb_gains_red" id="gain_r"
+             min="0.0" max="8.0" step="0.1" value="{{ cfg.camera_awb_gains_red }}"
+             oninput="document.getElementById('gain_r_val').textContent=parseFloat(this.value).toFixed(1)">
+      <span class="range-val" id="gain_r_val">{{ "%.1f"|format(cfg.camera_awb_gains_red) }}</span>
+    </div>
+    <div class="form-row" id="gains-row-b">
+      <label>Gain — Blue <small>Only used when AWB = off</small></label>
+      <input type="range" name="camera_awb_gains_blue" id="gain_b"
+             min="0.0" max="8.0" step="0.1" value="{{ cfg.camera_awb_gains_blue }}"
+             oninput="document.getElementById('gain_b_val').textContent=parseFloat(this.value).toFixed(1)">
+      <span class="range-val" id="gain_b_val">{{ "%.1f"|format(cfg.camera_awb_gains_blue) }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Orientation</h2>
+    <div class="form-row">
+      <label>Flip Horizontal</label>
+      <input type="checkbox" name="flip_screen_h" {% if cfg.flip_screen_h %}checked{% endif %}>
+    </div>
+    <div class="form-row">
+      <label>Flip Vertical</label>
+      <input type="checkbox" name="flip_screen_v" {% if cfg.flip_screen_v %}checked{% endif %}>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button type="button" class="btn btn-success" onclick="applyLive()">⚡ Apply Live</button>
+    <button type="submit" class="btn btn-primary">💾 Save to config.ini</button>
+  </div>
+</form>
+
+<script>
+// Dim the gain sliders when AWB != off
+function updateGainVisibility() {
+  const mode = document.getElementById('awb_mode').value;
+  const opacity = mode === 'off' ? 1 : 0.45;
+  document.getElementById('gains-row').style.opacity = opacity;
+  document.getElementById('gains-row-b').style.opacity = opacity;
+}
+document.getElementById('awb_mode').addEventListener('change', updateGainVisibility);
+updateGainVisibility();
+
+async function applyLive() {
+  const form = document.getElementById('cam-form');
+  const fd = new FormData(form);
+  const data = {};
+  fd.forEach((v, k) => data[k] = v);
+  // checkboxes not in FormData when unchecked
+  data.flip_screen_h = form.querySelector('[name=flip_screen_h]').checked ? 'on' : 'false';
+  data.flip_screen_v = form.querySelector('[name=flip_screen_v]').checked ? 'on' : 'false';
+
+  const msgEl = document.getElementById('apply-msg');
+  try {
+    const r = await fetch('/camera/apply', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    const j = await r.json();
+    msgEl.innerHTML = `<div class="alert alert-${r.ok ? 'success' : 'error'}">${j.msg}</div>`;
+  } catch(e) {
+    msgEl.innerHTML = `<div class="alert alert-error">Network error: ${e}</div>`;
+  }
+  setTimeout(() => msgEl.innerHTML = '', 3000);
+}
+</script>
+{% endblock %}

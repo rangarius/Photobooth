@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Layouts{% endblock %}
+{% block content %}
+<h1>Layout Editor</h1>
+
+{% if msg == "saved" %}
+<div class="alert alert-success">✓ Layout saved and photobooth reload triggered</div>
+{% endif %}
+
+<p style="font-size:0.88em;color:#666;margin-bottom:18px">
+  Two card layouts are available — the user selects one at the start of each session.
+  Positions and sizes are in pixels relative to the card canvas (1868×1261 for Canon Selphy).
+</p>
+
+<div class="tabs" id="layout-tabs">
+  <button class="tab active" onclick="switchTab(0)">Layout 1 ({{ layouts[0].picCount }} photos)</button>
+  <button class="tab" onclick="switchTab(1)">Layout 2 ({{ layouts[1].picCount }} photos)</button>
+</div>
+
+{% for layout in layouts %}
+{% set idx = loop.index %}
+<div class="tab-content {% if loop.first %}active{% endif %}" id="tab-{{ idx }}">
+  <form method="POST" action="/ui/layouts/save/{{ idx }}" enctype="multipart/form-data">
+
+    <div class="card" style="margin-top:14px">
+      <h2>Layout {{ idx }} — General</h2>
+      <div class="form-row">
+        <label>Number of Photos <small>1–9, determines how many shots are taken</small></label>
+        <input type="number" name="picCount" value="{{ layout.picCount }}" min="1" max="9">
+      </div>
+      <div class="form-row">
+        <label>Layout in Foreground <small>Overlay template on top of photos</small></label>
+        <input type="checkbox" name="layoutInForeground" {% if layout.layoutInForeground %}checked{% endif %}>
+      </div>
+      <div class="form-row">
+        <label>Template Image <small>PNG, printed size 1868×1261 px</small></label>
+        <input type="file" name="template_image" accept="image/png,image/jpeg">
+      </div>
+      {% if layout.cardTemplate %}
+      <div style="margin-top:10px">
+        <img src="/uploads/picture{{ idx }}.png" alt="Template {{ idx }}"
+             style="max-height:120px; border-radius:4px; border:1px solid #e5e7eb;"
+             onerror="this.style.display='none'">
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Photo Positions</h2>
+      <p style="font-size:0.82em;color:#888;margin-bottom:12px">
+        resizeX/Y = output size in px · posX/Y = top-left corner on card · rotate = degrees · color = color/bw/sepia
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Resize X</th>
+            <th>Resize Y</th>
+            <th>Pos X</th>
+            <th>Pos Y</th>
+            <th>Rotate °</th>
+            <th>Color</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pic in layout.pictures %}
+          {% set pi = loop.index0 %}
+          <tr>
+            <td><strong>{{ loop.index }}</strong></td>
+            <td><input type="number" name="pic_{{ pi }}_resizeX" value="{{ pic.resizeX }}" min="1" max="4096"></td>
+            <td><input type="number" name="pic_{{ pi }}_resizeY" value="{{ pic.resizeY }}" min="1" max="4096"></td>
+            <td><input type="number" name="pic_{{ pi }}_posX" value="{{ pic.posX }}" min="0" max="4096"></td>
+            <td><input type="number" name="pic_{{ pi }}_posY" value="{{ pic.posY }}" min="0" max="4096"></td>
+            <td><input type="number" name="pic_{{ pi }}_rotate" value="{{ pic.rotate }}" min="-360" max="360"></td>
+            <td>
+              <select name="pic_{{ pi }}_color">
+                {% for c in ['color', 'bw', 'sepia'] %}
+                <option value="{{ c }}" {% if pic.color == c %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="color:#999;text-align:center;padding:16px">No photos configured — set picCount and save.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="btn-row">
+      <button type="submit" class="btn btn-primary">💾 Save Layout {{ idx }}</button>
+    </div>
+  </form>
+</div>
+{% endfor %}
+
+<script>
+function switchTab(idx) {
+  document.querySelectorAll('.tab-content').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  document.querySelectorAll('#layout-tabs .tab').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+}
+</script>
+{% endblock %}

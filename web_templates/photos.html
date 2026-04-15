@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Photos{% endblock %}
+{% block content %}
+<h1>Photos</h1>
+
+{% if msg %}
+<div class="alert alert-info">{{ msg }}</div>
+{% endif %}
+
+<p style="font-size:0.88em;color:#666;margin-bottom:18px">
+  Captured photos and assembled cards from the <code>Photos/</code> directory.
+  {{ photos|length }} file{{ 's' if photos|length != 1 else '' }} found.
+  Click any image to download.
+</p>
+
+{% if photos %}
+<div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));">
+  {% for photo in photos %}
+  <div class="grid-item">
+    <a href="/photo/{{ photo }}" download="{{ photo }}">
+      <img src="/photo/{{ photo }}" alt="{{ photo }}" loading="lazy"
+           style="height:120px; object-fit:cover; cursor:pointer;"
+           onerror="this.style.background='#e5e7eb'">
+    </a>
+    <div class="name">
+      <a href="/photo/{{ photo }}" download="{{ photo }}" style="color:#2563eb;text-decoration:none;">
+        {{ photo }}
+      </a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:40px;color:#9ca3af">
+  <div style="font-size:2.5em;margin-bottom:10px">📷</div>
+  No photos yet. Run a session on the photobooth to capture images.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">FSM State</div>
+    <div class="value {% if state in ['Start', 'PowerOn'] %}green{% elif state == 'unknown' or state == 'offline' %}orange{% endif %}">
+      {{ state }}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Photo Resolution</div>
+    <div class="value">{{ cfg.photo_w }}×{{ cfg.photo_h }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Screen Resolution</div>
+    <div class="value">{{ cfg.screen_w }}×{{ cfg.screen_h }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Printing</div>
+    <div class="value {% if cfg.printPicsEnable %}green{% else %}orange{% endif %}">
+      {{ "Enabled" if cfg.printPicsEnable else "Disabled" }}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Camera ISO</div>
+    <div class="value">{{ "Auto" if cfg.camera_iso == 0 else cfg.camera_iso }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">AWB Mode</div>
+    <div class="value">{{ cfg.camera_awb_mode }}</div>
+  </div>
+</div>
+
+<h2>Quick Navigation</h2>
+<div class="link-grid">
+  <a href="/ui/config" class="link-card">
+    <span class="icon">⚙</span>
+    <span class="label">Global Config</span>
+  </a>
+  <a href="/ui/camera" class="link-card">
+    <span class="icon">◉</span>
+    <span class="label">Camera Settings</span>
+  </a>
+  <a href="/ui/layouts" class="link-card">
+    <span class="icon">▦</span>
+    <span class="label">Layout Editor</span>
+  </a>
+  <a href="/ui/screens" class="link-card">
+    <span class="icon">🖼</span>
+    <span class="label">Screen Images</span>
+  </a>
+  <a href="/ui/photos" class="link-card">
+    <span class="icon">🗃</span>
+    <span class="label">Browse Photos</span>
+  </a>
+</div>
+
+<h2 style="margin-top:26px">Photobooth Control</h2>
+<div class="card">
+  <p style="font-size:0.88em; color:#666; margin-bottom:14px">Trigger a full reload of config and card templates (equivalent to power-on self-check).</p>
+  <button class="btn btn-secondary" onclick="restartPB(this)">↺ Restart / Reload Config</button>
+  <span id="restart-msg" style="margin-left:12px; font-size:0.85em; color:#059669"></span>
+</div>
+
+<script>
+async function restartPB(btn) {
+  btn.disabled = true;
+  const r = await fetch('/restart');
+  const j = await r.json();
+  document.getElementById('restart-msg').textContent = j.msg;
+  setTimeout(() => { btn.disabled = false; document.getElementById('restart-msg').textContent = ''; }, 3000);
+}
+</script>
+{% endblock %}

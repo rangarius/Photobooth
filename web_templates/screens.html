@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Screens{% endblock %}
+{% block content %}
+<h1>Screen Images</h1>
+
+{% if msg == "uploaded" %}
+<div class="alert alert-success">✓ Image uploaded and photobooth reload triggered</div>
+{% elif msg == "error_missing" %}
+<div class="alert alert-error">✗ Missing file or filename — please select a file and provide a name</div>
+{% endif %}
+
+<p style="font-size:0.88em;color:#666;margin-bottom:18px">
+  All PNG files in the <code>Screens/</code> directory. Click a filename to replace it.
+  Images must be PNG, sized to match screen resolution ({{ screens|length }} images found).
+</p>
+
+<div class="card" style="margin-bottom:20px">
+  <h2>Upload / Replace a Screen</h2>
+  <form method="POST" action="/ui/screens/upload" enctype="multipart/form-data">
+    <div class="form-row">
+      <label>Screen name <small>Filename without .png (e.g. ScreenLogo)</small></label>
+      <input type="text" name="screen_name" placeholder="ScreenLogo" required>
+    </div>
+    <div class="form-row">
+      <label>PNG file <small>Must be same resolution as current screen images</small></label>
+      <input type="file" name="screen_file" accept="image/png" required>
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="btn btn-primary">⬆ Upload</button>
+    </div>
+  </form>
+</div>
+
+<div class="grid">
+  {% for screen in screens %}
+  <div class="grid-item">
+    <img src="/systemImage/{{ screen }}" alt="{{ screen }}" loading="lazy"
+         onerror="this.style.background='#e5e7eb'">
+    <div class="name">{{ screen }}</div>
+  </div>
+  {% else %}
+  <p style="color:#999">No screen images found in Screens/ directory.</p>
+  {% endfor %}
+</div>
+{% endblock %}
