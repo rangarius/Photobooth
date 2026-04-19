@@ -92,12 +92,15 @@ class Photobooth:
     #setup Camera Settings
     def setupCamera(self):
         logging.debug("Setup Camera")
-        # Setup Camera
-        try:
-            self.camera = picamera.PiCamera()
-        except:
-            logging.CRITICAL("error initializing the camera - exiting")
-            raise SystemExit
+        for attempt in range(5):
+            try:
+                self.camera = picamera.PiCamera()
+                break
+            except Exception as e:
+                logging.critical("error initializing camera (attempt %d/5): %s" % (attempt + 1, str(e)))
+                if attempt == 4:
+                    raise
+                time.sleep(1)
         self.camera.resolution = (self.config.photo_w, self.config.photo_h)
         self.camera.hflip = self.config.flip_screen_h
         self.camera.vflip = self.config.flip_screen_v
@@ -359,7 +362,9 @@ class Photobooth:
 
         self.button1active = False
         self.button2active = False
-        
+        self.time_stamp_button1 = 0.0
+        self.time_stamp_button2 = 0.0
+
         logging.debug("now on_enter_Start")
         self.overlay_screen_blackbackground = self.overlay_image(self.config.screen_black, 0, 2)
         self.overlay_choose_layout = self.overlay_image_transparency(self.config.screen_choose_layout, 0, 7)
@@ -519,8 +524,10 @@ class Photobooth:
             conn = cups.Connection()
             printername = list(conn.getPrinters().keys())
 
-            print(printername)
-    
+            if not printername:
+                logging.debug("No CUPS printer found — skipping print")
+                return
+
             # use first printer
             logging.debug("Printer Name: " + printername[0])
             conn.enablePrinter(printername[0])
@@ -615,13 +622,7 @@ class Photobooth:
         logging.debug("restart Camera")
 
         self.camera.close()
-
-        # Setup Camera
-        try:
-            self.camera = picamera.PiCamera()
-        except:
-            logging.CRITICAL("error initializing the camera - exiting")
-            raise SystemExit
+        time.sleep(1)
 
         self.setupCamera()
         self.startpreview()
@@ -629,7 +630,7 @@ class Photobooth:
         # load the Logo of the Photobooth and display it
         self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
 
-        self.to_Start()
+        self.to_PowerOn()
 
     # start the camera
     def startpreview(self):
@@ -784,10 +785,18 @@ class Photobooth:
             devices = bus.devices
             for dev in devices:
                 if dev.idVendor == 1193:
-                    logging.debug("Printer Found")
+                    logging.debug("Printer Found via USB")
                     logging.debug("  idVendor: %d (0x%04x)" % (dev.idVendor, dev.idVendor))
                     logging.debug("  idProduct: %d (0x%04x)" % (dev.idProduct, dev.idProduct))
                     return True
+        try:
+            conn = cups.Connection()
+            printers = conn.getPrinters()
+            if printers:
+                logging.debug("Printer Found via CUPS: " + str(list(printers.keys())))
+                return True
+        except Exception as e:
+            logging.debug("CUPS check failed: " + str(e))
         logging.debug("PrinterNotFound")
         return False
         # ends the Application

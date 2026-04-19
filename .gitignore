@@ -1,9 +1,32 @@
+# Runtime / generated
 Log/
+Photos/*
+!Photos/.gitignore
 .flask_secret
 uploads/*
-__pycache__
-client/
-development/
+__pycache__/
+*.pyc
+
+# Virtualenvs / editor state
 venv/
 .venv/
 .vscode/
+.idea/
+
+# Scratch / legacy
+client/
+development/
+
+# Templates — only ship the Default reference template
+Templates/*
+!Templates/Default/
+!Templates/.gitkeep
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+._*
+**/._*
+
+#Production data
+/Photos/

@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+{% block title %}Layout {{ layout_id }} Editor{% endblock %}
+{% block content %}
+<style>
+  /* Override base content constraints for full-width editor */
+  .content { max-width: none !important; padding: 14px 18px !important; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  #editor-header { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; flex-shrink: 0; }
+  #editor-header h1 { margin: 0; font-size: 1.1em; }
+
+  .editor-body { display: flex; gap: 14px; flex: 1; min-height: 0; }
+
+  /* Canvas area */
+  #canvas-outer-wrap {
+    flex: 1;
+    background: #111827;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 12px;
+    min-width: 0;
+    position: relative;
+  }
+
+  #canvas-outer { position: relative; flex-shrink: 0; }
+
+  #canvas-wrap {
+    position: relative;
+    width: 1868px;
+    height: 1261px;
+    transform-origin: top left;
+    cursor: default;
+    user-select: none;
+    overflow: visible;
+  }
+
+  #canvas-wrap .bg-img {
+    position: absolute; top: 0; left: 0;
+    width: 1868px; height: 1261px;
+    pointer-events: none;
+    display: block;
+    border-radius: 2px;
+  }
+
+  .bg-fallback {
+    position: absolute; top: 0; left: 0;
+    width: 1868px; height: 1261px;
+    background: #2d3f5f;
+    display: flex; align-items: center; justify-content: center;
+    color: #6b7e9f; font-size: 48px;
+  }
+
+  /* Frames */
+  .frame {
+    position: absolute;
+    border: 3px solid rgba(59,130,246,0.75);
+    background: rgba(59,130,246,0.13);
+    cursor: grab;
+    transform-origin: center center;
+    box-sizing: border-box;
+  }
+  .frame:hover { border-color: rgba(59,130,246,1); background: rgba(59,130,246,0.2); }
+  .frame.selected {
+    border-color: #3b82f6;
+    background: rgba(59,130,246,0.22);
+    z-index: 20;
+  }
+  .frame.dragging { cursor: grabbing; }
+
+  .frame-num {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 60px; font-weight: 800;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    pointer-events: none;
+    line-height: 1;
+  }
+
+  .frame-color-badge {
+    position: absolute; bottom: 6px; right: 8px;
+    font-size: 18px; font-weight: 700;
+    color: rgba(255,255,255,0.7);
+    pointer-events: none;
+  }
+
+  /* Resize handle — bottom-right */
+  .h-resize {
+    position: absolute; bottom: -7px; right: -7px;
+    width: 15px; height: 15px;
+    background: #3b82f6; border: 2px solid #fff;
+    border-radius: 3px; cursor: se-resize;
+    z-index: 30;
+  }
+
+  /* Rotate handle — top-center */
+  .h-rotate {
+    position: absolute;
+    top: -38px; left: 50%;
+    transform: translateX(-50%);
+    width: 16px; height: 16px;
+    background: #10b981; border: 2px solid #fff;
+    border-radius: 50%; cursor: crosshair;
+    z-index: 30;
+  }
+  .h-rotate::after {
+    content: '';
+    position: absolute;
+    width: 2px; height: 22px;
+    background: #10b981;
+    left: 50%; bottom: 14px;
+    transform: translateX(-50%);
+  }
+
+  /* Properties panel */
+  .props-panel {
+    width: 258px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    gap: 10px; overflow-y: auto;
+  }
+
+  .p-card {
+    background: #fff; border-radius: 8px;
+    padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    flex-shrink: 0;
+  }
+
+  .p-card h3 {
+    font-size: 0.72em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: #9ca3af; margin-bottom: 10px;
+  }
+
+  .p-row { display: flex; align-items: center; margin-bottom: 7px; gap: 8px; }
+  .p-row label { width: 68px; font-size: 0.82em; color: #555; flex-shrink: 0; }
+  .p-row input[type=number], .p-row select {
+    flex: 1; padding: 5px 8px;
+    border: 1px solid #d1d5db; border-radius: 4px;
+    font-size: 0.85em; background: #fff; outline: none;
+  }
+  .p-row input:focus, .p-row select:focus { border-color: #3b82f6; }
+  .p-row input[type=checkbox] { width: auto; }
+
+  .frame-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .ftab {
+    padding: 3px 9px; border: 1px solid #d1d5db;
+    border-radius: 4px; cursor: pointer;
+    font-size: 0.78em; background: #f9fafb;
+    transition: background 0.1s; color: #374151;
+  }
+  .ftab.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+  #save-msg { margin-top: 8px; font-size: 0.82em; display: none; }
+</style>
+
+<div id="editor-header">
+  <a href="/ui/layouts" class="btn btn-secondary" style="padding:6px 12px;text-decoration:none">← Back</a>
+  <h1>Layout {{ layout_id }} — Visual Editor</h1>
+  <span style="font-size:0.78em;color:#9ca3af">Canvas: 1868 × 1261 px · Drag to move · Green handle to rotate · Blue corner to resize</span>
+</div>
+
+<div class="editor-body">
+  <!-- ── Canvas ── -->
+  <div id="canvas-outer-wrap">
+    <div id="canvas-outer">
+      <div id="canvas-wrap">
+        <img class="bg-img" id="bg-img"
+             src="/uploads/{{ layout.cardFileName }}"
+             onerror="this.style.display='none'; document.getElementById('bg-fb').style.display='flex'">
+        <div class="bg-fallback" id="bg-fb" style="display:none">No template image</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Properties ── -->
+  <div class="props-panel">
+
+    <div class="p-card">
+      <h3>Layout {{ layout_id }}</h3>
+      <div class="p-row">
+        <label>Photos</label>
+        <input type="number" id="p-picCount" min="1" max="9" value="{{ layout.picCount }}" onchange="onPicCountChange()">
+      </div>
+      <div class="p-row">
+        <label>Fg overlay</label>
+        <input type="checkbox" id="p-fg" {% if layout.layoutInForeground %}checked{% endif %}>
+        <span style="font-size:0.78em;color:#9ca3af">template on top</span>
+      </div>
+    </div>
+
+    <div class="p-card">
+      <h3>Frame</h3>
+      <div class="frame-tabs" id="frame-tabs"></div>
+
+      <div class="p-row"><label>X (left)</label><input type="number" id="p-posX" onchange="onPropChange()" min="0"></div>
+      <div class="p-row"><label>Y (top)</label><input type="number" id="p-posY" onchange="onPropChange()" min="0"></div>
+      <div class="p-row"><label>Width</label><input type="number" id="p-resizeX" onchange="onPropChange()" min="10"></div>
+      <div class="p-row"><label>Height</label><input type="number" id="p-resizeY" onchange="onPropChange()" min="10"></div>
+      <div class="p-row"><label>Rotate °</label><input type="number" id="p-rotate" onchange="onPropChange()"></div>
+      <div class="p-row">
+        <label>Color</label>
+        <select id="p-color" onchange="onPropChange()">
+          <option value="color">Color</option>
+          <option value="bw">B&W</option>
+          <option value="sepia">Sepia</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="p-card">
+      <h3>Actions</h3>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-success" onclick="saveLayout()" style="width:100%">Save Layout {{ layout_id }}</button>
+        <a href="/ui/layouts" class="btn btn-secondary" style="width:100%;text-align:center;text-decoration:none;display:block">Cancel</a>
+      </div>
+      <div id="save-msg"></div>
+    </div>
+
+  </div><!-- /props-panel -->
+</div><!-- /editor-body -->
+
+<script>
+const CANVAS_W = 1868, CANVAS_H = 1261;
+const LAYOUT_ID = {{ layout_id }};
+
+let frames = [
+{% for pic in layout.pictures %}
+  { posX: {{ pic.posX }}, posY: {{ pic.posY }}, resizeX: {{ pic.resizeX }}, resizeY: {{ pic.resizeY }}, rotate: {{ pic.rotate }}, color: {{ pic.color | tojson }} },
+{% endfor %}
+];
+
+let selectedIdx = 0;
+let scale = 1;
+
+const canvasWrap    = document.getElementById('canvas-wrap');
+const canvasOuter   = document.getElementById('canvas-outer');
+const canvasOuterWrap = document.getElementById('canvas-outer-wrap');
+
+// ── Scale ──────────────────────────────────────────────
+function updateScale() {
+  const aw = canvasOuterWrap.clientWidth  - 24;
+  const ah = canvasOuterWrap.clientHeight - 24;
+  scale = Math.min(aw / CANVAS_W, ah / CANVAS_H, 1);
+  canvasWrap.style.transform = `scale(${scale})`;
+  canvasOuter.style.width  = Math.round(CANVAS_W * scale) + 'px';
+  canvasOuter.style.height = Math.round(CANVAS_H * scale) + 'px';
+}
+
+// ── Render ─────────────────────────────────────────────
+function render() {
+  canvasWrap.querySelectorAll('.frame').forEach(el => el.remove());
+
+  frames.forEach((f, i) => {
+    const div = document.createElement('div');
+    div.className = 'frame' + (i === selectedIdx ? ' selected' : '');
+    div.style.cssText = `left:${f.posX}px;top:${f.posY}px;width:${f.resizeX}px;height:${f.resizeY}px;transform:rotate(${f.rotate}deg)`;
+
+    // Label
+    const num = document.createElement('div');
+    num.className = 'frame-num';
+    num.textContent = i + 1;
+    div.appendChild(num);
+
+    // Color badge
+    if (f.color && f.color !== 'color') {
+      const badge = document.createElement('div');
+      badge.className = 'frame-color-badge';
+      badge.textContent = f.color === 'bw' ? 'B&W' : 'Sepia';
+      div.appendChild(badge);
+    }
+
+    if (i === selectedIdx) {
+      const rh = document.createElement('div');
+      rh.className = 'h-resize';
+      rh.addEventListener('mousedown', e => startResize(e, i));
+      div.appendChild(rh);
+
+      const rot = document.createElement('div');
+      rot.className = 'h-rotate';
+      rot.addEventListener('mousedown', e => startRotate(e, i));
+      div.appendChild(rot);
+    }
+
+    div.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('h-resize') ||
+          e.target.classList.contains('h-rotate')) return;
+      startDrag(e, i);
+    });
+
+    canvasWrap.appendChild(div);
+  });
+
+  syncPanel();
+}
+
+// ── Panel sync ─────────────────────────────────────────
+function syncPanel() {
+  // Tabs
+  const tabs = document.getElementById('frame-tabs');
+  tabs.innerHTML = '';
+  frames.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.className = 'ftab' + (i === selectedIdx ? ' active' : '');
+    b.textContent = 'Frame ' + (i + 1);
+    b.onclick = () => { selectedIdx = i; render(); };
+    tabs.appendChild(b);
+  });
+
+  if (!frames.length) return;
+  const f = frames[selectedIdx];
+  document.getElementById('p-posX').value   = f.posX;
+  document.getElementById('p-posY').value   = f.posY;
+  document.getElementById('p-resizeX').value = f.resizeX;
+  document.getElementById('p-resizeY').value = f.resizeY;
+  document.getElementById('p-rotate').value  = f.rotate;
+  document.getElementById('p-color').value   = f.color || 'color';
+}
+
+function onPropChange() {
+  if (!frames.length) return;
+  const f = frames[selectedIdx];
+  f.posX    = parseInt(document.getElementById('p-posX').value)   || 0;
+  f.posY    = parseInt(document.getElementById('p-posY').value)   || 0;
+  f.resizeX = Math.max(10, parseInt(document.getElementById('p-resizeX').value) || 10);
+  f.resizeY = Math.max(10, parseInt(document.getElementById('p-resizeY').value) || 10);
+  f.rotate  = parseInt(document.getElementById('p-rotate').value) || 0;
+  f.color   = document.getElementById('p-color').value;
+  render();
+}
+
+function onPicCountChange() {
+  const n = Math.max(1, Math.min(9, parseInt(document.getElementById('p-picCount').value) || 1));
+  document.getElementById('p-picCount').value = n;
+  while (frames.length < n) {
+    const idx = frames.length;
+    frames.push({ posX: 80 + idx * 50, posY: 80 + idx * 30, resizeX: 500, resizeY: 380, rotate: 0, color: 'color' });
+  }
+  frames.length = n;
+  selectedIdx = Math.min(selectedIdx, n - 1);
+  render();
+}
+
+// ── Drag ───────────────────────────────────────────────
+function startDrag(e, idx) {
+  e.preventDefault();
+  selectedIdx = idx;
+
+  const rect0 = canvasWrap.getBoundingClientRect();
+  const sx = (e.clientX - rect0.left) / scale;
+  const sy = (e.clientY - rect0.top)  / scale;
+  const px = frames[idx].posX, py = frames[idx].posY;
+
+  const divs = canvasWrap.querySelectorAll('.frame');
+  if (divs[idx]) divs[idx].classList.add('dragging');
+
+  function move(e) {
+    const r = canvasWrap.getBoundingClientRect();
+    frames[idx].posX = Math.round(px + (e.clientX - r.left) / scale - sx);
+    frames[idx].posY = Math.round(py + (e.clientY - r.top)  / scale - sy);
+    render();
+  }
+  function up() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+  render();
+}
+
+// ── Resize (bottom-right, frame-local coords) ──────────
+function startResize(e, idx) {
+  e.preventDefault(); e.stopPropagation();
+  selectedIdx = idx;
+
+  const mx0 = e.clientX, my0 = e.clientY;
+  const w0 = frames[idx].resizeX, h0 = frames[idx].resizeY;
+  const theta = frames[idx].rotate * Math.PI / 180;
+
+  function move(e) {
+    const dxs = (e.clientX - mx0) / scale;
+    const dys = (e.clientY - my0) / scale;
+    // rotate delta to frame-local space
+    const dxl =  dxs * Math.cos(theta) + dys * Math.sin(theta);
+    const dyl = -dxs * Math.sin(theta) + dys * Math.cos(theta);
+    frames[idx].resizeX = Math.max(20, Math.round(w0 + dxl));
+    frames[idx].resizeY = Math.max(20, Math.round(h0 + dyl));
+    render();
+  }
+  function up() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+
+// ── Rotate ─────────────────────────────────────────────
+function startRotate(e, idx) {
+  e.preventDefault(); e.stopPropagation();
+  selectedIdx = idx;
+
+  function move(e) {
+    const r = canvasWrap.getBoundingClientRect();
+    const cx = (frames[idx].posX + frames[idx].resizeX / 2) * scale + r.left;
+    const cy = (frames[idx].posY + frames[idx].resizeY / 2) * scale + r.top;
+    const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI + 90;
+    frames[idx].rotate = Math.round(angle);
+    render();
+  }
+  function up() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+}
+
+// ── Save ───────────────────────────────────────────────
+function saveLayout() {
+  const fd = new FormData();
+  fd.append('picCount', frames.length);
+  fd.append('layoutInForeground', document.getElementById('p-fg').checked ? 'on' : '');
+  frames.forEach((f, i) => {
+    fd.append(`pic_${i}_posX`,    f.posX);
+    fd.append(`pic_${i}_posY`,    f.posY);
+    fd.append(`pic_${i}_resizeX`, f.resizeX);
+    fd.append(`pic_${i}_resizeY`, f.resizeY);
+    fd.append(`pic_${i}_rotate`,  f.rotate);
+    fd.append(`pic_${i}_color`,   f.color || 'color');
+  });
+
+  fetch(`/ui/layouts/save/${LAYOUT_ID}`, { method: 'POST', body: fd })
+    .then(r => {
+      const el = document.getElementById('save-msg');
+      el.style.display = 'block';
+      el.style.color = r.ok ? '#059669' : '#dc2626';
+      el.textContent  = r.ok ? 'Saved!' : 'Error saving';
+      setTimeout(() => el.style.display = 'none', 3000);
+    });
+}
+
+// ── Init ───────────────────────────────────────────────
+window.addEventListener('resize', () => { updateScale(); render(); });
+updateScale();
+render();
+</script>
+{% endblock %}

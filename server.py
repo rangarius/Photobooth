@@ -340,6 +340,15 @@ def ui_layouts():
     return render_template("layouts.html", layouts=layouts, msg=msg)
 
 
+@app.route("/ui/layouts/editor/<int:layout_id>", methods=["GET"])
+@requires_auth
+def ui_layout_editor(layout_id):
+    if layout_id < 1 or layout_id > len(app.templateParser.layout):
+        return redirect(url_for("ui_layouts"))
+    layout = app.templateParser.layout[layout_id - 1]
+    return render_template("layout_editor.html", layout=layout, layout_id=layout_id)
+
+
 @app.route("/ui/layouts/save/<int:layout_id>", methods=["POST"])
 @requires_auth
 def ui_layouts_save(layout_id):

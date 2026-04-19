@@ -23,11 +23,13 @@ class TemplateParser:
             card = self.layout[id-1]
             if "new_image" in data:
                 image_basecode = data["new_image"]
-                with open(os.path.join(self.template_path, "picture"+str(id)+".png"), "wb") as fh:
+                new_filename = "picture" + str(id) + ".png"
+                with open(os.path.join(self.template_path, new_filename), "wb") as fh:
                     con_basecode = image_basecode.split(',')[1]
                     img_str_encoded = str.encode(con_basecode)
                     image_data = base64.urlsafe_b64decode(img_str_encoded)
                     fh.write(image_data)
+                card.cardFileName = new_filename
 
             if data.get("picCount") is not None:
                 card.picCount = int(data["picCount"])
@@ -35,7 +37,6 @@ class TemplateParser:
                 card.layoutInForeground = data["layoutInForeground"] in (True, "True", "true", "on", "1")
                 logger.debug("Layout is now: ")
                 logger.debug(card.layoutInForeground)
-            card.cardFileName = str("picture" + str(data["id"]) + ".png")
 
             if data.get("pictures") is not None:
                 pictures = data["pictures"]
@@ -64,7 +65,7 @@ class TemplateParser:
 
             self.cardconfig.set(layout_str, "piccount", str(card.picCount))
             self.cardconfig.set(layout_str, "layout_in_foreground", str(card.layoutInForeground))
-            self.cardconfig.set(layout_str, "cardtemplate", "picture"+str(id)+".png")
+            self.cardconfig.set(layout_str, "cardtemplate", card.cardFileName or "picture"+str(id)+".png")
             pictures = card.pictures
 
             for j in range(0, len(pictures)):
@@ -92,10 +93,9 @@ class TemplateParser:
             for l in range(0, 2):
                 layout_str = "Layout"+str(l+1)
                 self.layout[l].picCount = int(self.cardconfig.get(layout_str, "piccount", fallback="0"))
-                self.layout[l].cardFileName = os.path.join(self.template_path,
-                "picture"+str(l+1)+".png")
-                self.layout[l].cardTemplate = os.path.join(self.template_path,
-                "picture"+str(l+1)+".png")
+                card_tpl = self.cardconfig.get(layout_str, "cardtemplate", fallback="picture"+str(l+1)+".png")
+                self.layout[l].cardFileName = card_tpl
+                self.layout[l].cardTemplate = os.path.join(self.template_path, card_tpl)
 
                 self.layout[l].layoutInForeground = self.cardconfig.getboolean(layout_str, "layout_in_foreground", fallback=False)
                 self.layout[l].pictures = []

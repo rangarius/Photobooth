@@ -36,9 +36,9 @@
         <label>Template Image <small>PNG, printed size 1868×1261 px</small></label>
         <input type="file" name="template_image" accept="image/png,image/jpeg">
       </div>
-      {% if layout.cardTemplate %}
+      {% if layout.cardFileName %}
       <div style="margin-top:10px">
-        <img src="/uploads/picture{{ idx }}.png" alt="Template {{ idx }}"
+        <img src="/uploads/{{ layout.cardFileName }}" alt="Template {{ idx }}"
              style="max-height:120px; border-radius:4px; border:1px solid #e5e7eb;"
              onerror="this.style.display='none'">
       </div>
@@ -69,8 +69,8 @@
             <td><strong>{{ loop.index }}</strong></td>
             <td><input type="number" name="pic_{{ pi }}_resizeX" value="{{ pic.resizeX }}" min="1" max="4096"></td>
             <td><input type="number" name="pic_{{ pi }}_resizeY" value="{{ pic.resizeY }}" min="1" max="4096"></td>
-            <td><input type="number" name="pic_{{ pi }}_posX" value="{{ pic.posX }}" min="0" max="4096"></td>
-            <td><input type="number" name="pic_{{ pi }}_posY" value="{{ pic.posY }}" min="0" max="4096"></td>
+            <td><input type="number" name="pic_{{ pi }}_posX" value="{{ pic.posX }}"  max="4096"></td>
+            <td><input type="number" name="pic_{{ pi }}_posY" value="{{ pic.posY }}"  max="4096"></td>
             <td><input type="number" name="pic_{{ pi }}_rotate" value="{{ pic.rotate }}" min="-360" max="360"></td>
             <td>
               <select name="pic_{{ pi }}_color">
@@ -88,7 +88,8 @@
     </div>
 
     <div class="btn-row">
-      <button type="submit" class="btn btn-primary">💾 Save Layout {{ idx }}</button>
+      <button type="submit" class="btn btn-primary">Save Layout {{ idx }}</button>
+      <a href="/ui/layouts/editor/{{ idx }}" class="btn btn-secondary" style="text-decoration:none">Visual Editor</a>
     </div>
   </form>
 </div>
