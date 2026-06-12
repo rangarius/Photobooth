@@ -163,13 +163,14 @@ def api_camera_apply():
 
     if app.photobooth and hasattr(app.photobooth, 'camera') and app.photobooth.camera:
         try:
-            cam = app.photobooth.camera
-            cam.iso = cfg.camera_iso
-            cam.awb_mode = cfg.camera_awb_mode
-            if cfg.camera_awb_mode == 'off':
-                cam.awb_gains = (cfg.camera_awb_gains_red, cfg.camera_awb_gains_blue)
-            cam.hflip = cfg.flip_screen_h
-            cam.vflip = cfg.flip_screen_v
+            app.photobooth.camera.apply_settings(
+                iso=cfg.camera_iso,
+                awb_mode=cfg.camera_awb_mode,
+                awb_gains_red=cfg.camera_awb_gains_red,
+                awb_gains_blue=cfg.camera_awb_gains_blue,
+                flip_h=cfg.flip_screen_h,
+                flip_v=cfg.flip_screen_v,
+            )
             return jsonify({"msg": "applied"})
         except Exception as e:
             return jsonify({"msg": "error", "detail": str(e)}), 500

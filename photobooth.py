@@ -5,7 +5,8 @@ import pyudev
 import psutil
 from PIL import Image  # image manipulation for Overlay
 import time  # timing
-import picamera  # camera driver
+from camera_backend import GPhoto2Backend
+from display import DisplayManager
 import shutil  # file io access like copy
 from datetime import datetime  # datetime routine
 import RPi.GPIO as GPIO  # gpio access
@@ -60,8 +61,7 @@ class Photobooth:
         self.button1active = False
         self.button2active = False
 
-
-
+        self.display = DisplayManager(self.config.screen_w, self.config.screen_h)
         self.setupCamera()
         self.startpreview()
 
@@ -89,24 +89,10 @@ class Photobooth:
         # Start the Application
 
 
-    #setup Camera Settings
     def setupCamera(self):
         logging.debug("Setup Camera")
-        for attempt in range(5):
-            try:
-                self.camera = picamera.PiCamera()
-                break
-            except Exception as e:
-                logging.critical("error initializing camera (attempt %d/5): %s" % (attempt + 1, str(e)))
-                if attempt == 4:
-                    raise
-                time.sleep(1)
-        self.camera.resolution = (self.config.photo_w, self.config.photo_h)
-        self.camera.hflip = self.config.flip_screen_h
-        self.camera.vflip = self.config.flip_screen_v
-        self.camera.awb_gains = (self.config.camera_awb_gains_red, self.config.camera_awb_gains_blue)
-        self.camera.awb_mode = self.config.camera_awb_mode
-        self.camera.iso = self.config.camera_iso
+        self.camera = GPhoto2Backend()
+        self.camera.setup(self.config)
 
 
 
@@ -163,12 +149,7 @@ class Photobooth:
     #self.config = 
 
     def setCameraColor(self, color):
-        if color == "bw":
-            self.camera.color_effects = (128, 128)  # turn camera to black and white
-        elif color == "sepia":
-            self.camera.color_effects = (100, 150)  # turn camera to black and white
-        else:
-            self.camera.color_effects = None
+        self.camera.set_color_effect(color)
 
 
     # Button1 callback function. Actions depends on state of the Photobooth state machine
@@ -616,34 +597,23 @@ class Photobooth:
         logging.debug("now on_exit_RefillInk")
         self.remove_overlay(self.overlayscreen_refillink)
 
-    # restart the programm -> restart camera to prevent memory leak of image overlay function!
     def on_enter_Restart(self):
         logging.debug("now on_enter_Restart")
-        logging.debug("restart Camera")
-
         self.camera.close()
         time.sleep(1)
-
         self.setupCamera()
         self.startpreview()
-
-        # load the Logo of the Photobooth and display it
         self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
 
         self.to_PowerOn()
 
-    # start the camera
     def startpreview(self):
         logging.debug("Start Camera preview")
-        self.camera.start_preview(resolution=(self.config.screen_w, self.config.screen_h))
-        # camera.color_effects = (128, 128)  # SW
-        pass
+        self.camera.start_preview(self.display.update_preview)
 
-    # stop the camera
     def stoppreview(self):
         logging.debug("Stop Camera Preview")
         self.camera.stop_preview()
-        pass
 
     # create filename based on date and time
     def get_base_filename_for_images(self):
@@ -656,102 +626,22 @@ class Photobooth:
         logging.debug(base_filename)
         return base_filename
 
-    # remove screen overlay
     def remove_overlay(self, overlay_id):
-        # If there is an overlay, remove it
-        logging.debug("Remove Overlay")
-        logging.debug(overlay_id)
-        if overlay_id != -1:
-            self.camera.remove_overlay(overlay_id)
+        logging.debug(f"Remove Overlay {overlay_id}")
+        self.display.remove_overlay(overlay_id)
 
-    # overlay one image on screen
     def overlay_image(self, image_path, duration=0, layer=3):
-        # Add an overlay (and time.sleep for an optional duration).
-        # If time.sleep duration is not supplied, then overlay will need to be removed later.
-        # This function returns an overlay id, which can be used to remove_overlay(id).
-
-        if not os.path.exists(image_path):
-            logging.debug("Overlay Image path not found!")
-            logging.debug(image_path)
-            return -1
-
-        logging.debug("Overlay Image")
-        # Load the arbitrarily sized image
-        img = Image.open(image_path)
-        # Create an image padded to the required size with
-        # mode 'RGB'
-        pad = Image.new('RGB', (
-            ((img.size[0] + 31) // 32) * 32,
-            ((img.size[1] + 15) // 16) * 16,
-        ))
-        # Paste the original image into the padded one
-        pad.paste(img, (0, 0))
-
-        # Add the overlay with the padded image as the source,
-        # but the original image's dimensions
-        try:
-            o_id = self.camera.add_overlay(pad.tobytes(), size=img.size)
-        except AttributeError:
-            o_id = self.camera.add_overlay(pad.tostring(), size=img.size)  # Note: tostring() is deprecated in PIL v3.x
-
-        o_id.layer = layer
-
-        logging.debug("Overlay ID = " + str(o_id))
-
-        del img
-        del pad
-
+        logging.debug(f"Overlay Image: {image_path}")
+        o_id = self.display.add_overlay(image_path, layer)
         if duration > 0:
             time.sleep(duration)
-            self.camera.remove_overlay(o_id)
-            return -1  # '-1' indicates there is no overlay
-        else:
-            return o_id  # we have an overlay, and will need to remove it later
+            self.display.remove_overlay(o_id)
+            return -1
+        return o_id
 
-    # overlay omage with transparency
     def overlay_image_transparency(self, image_path, duration=0, layer=3):
-        # Add an overlay (and time.sleep for an optional duration).
-        # If time.sleep duration is not supplied, then overlay will need to be removed later.
-        # This function returns an overlay id, which can be used to remove_overlay(id).
-
-        if not os.path.exists(image_path):
-            logging.debug("Overlay Image path not found!")
-            logging.debug(image_path)
-            return -1
-
-        logging.debug("Overlay Transparency Image")
-        logging.debug(image_path)
-        # Load the arbitrarily sized image
-        img = Image.open(image_path)
-        # Create an image padded to the required size with
-        # mode 'RGB'
-        pad = Image.new('RGBA', (
-            ((img.size[0] + 31) // 32) * 32,
-            ((img.size[1] + 15) // 16) * 16,
-        ))
-        # Paste the original image into the padded one
-        pad.paste(img, (0, 0), img)
-
-        # Add the overlay with the padded image as the source,
-        # but the original image's dimensions
-        try:
-            o_id = self.camera.add_overlay(pad.tobytes(), size=img.size)
-        except AttributeError:
-            o_id = self.camera.add_overlay(pad.tostring(), size=img.size)  # Note: tostring() is deprecated in PIL v3.x
-
-        o_id.layer = layer
-
-        logging.debug("Overlay ID = " + str(o_id))
-
-        del img
-        del pad
-
-        if duration > 0:
-            time.sleep(duration)
-            self.camera.remove_overlay(o_id)
-            return -1  # '-1' indicates there is no overlay
-        else:
-            return o_id  # we have an overlay, and will need to remove it later
+        # Identical to overlay_image — DisplayManager handles RGBA natively
+        return self.overlay_image(image_path, duration, layer)
 
     # get the usb drive mount point
     def GetMountpoint(self):
