@@ -51,8 +51,9 @@ class Photobooth:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.config.pin_button_right, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(self.config.pin_button_left, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.config.pin_button_right, GPIO.FALLING, callback=self.Button2pressed, bouncetime=500)
-        GPIO.add_event_detect(self.config.pin_button_left, GPIO.FALLING, callback=self.Button1pressed, bouncetime=500)
+        # RPi.GPIO edge detection is broken on newer kernels — use polling thread instead
+        t_gpio = threading.Thread(target=self._gpio_poll_loop, daemon=True)
+        t_gpio.start()
 
         logging.debug("Set TimeStamp for Buttons")
         self.time_stamp_button1 = time.time()
@@ -139,11 +140,6 @@ class Photobooth:
         self.layoutParser.readCardConfiguration()
         self.layout = self.layoutParser.layout
         logging.debug("Reading Config finished, starting webserver")
-        logging.debug(self.layout[0].cardTemplate)
-        self.imagetemplate1 = image(filename=self.layout[0].cardTemplate)
-        logging.debug(self.imagetemplate1)
-        self.imagetemplate2 = image(filename=self.layout[1].cardTemplate)
-        logging.debug(self.imagetemplate2)
 
     # read the global configuration, folders, resolution....
     #self.config = 
@@ -256,6 +252,20 @@ class Photobooth:
             self.button1active = False
             self.button2active = False
 
+    def _gpio_poll_loop(self):
+        prev_left = True
+        prev_right = True
+        while True:
+            left = GPIO.input(self.config.pin_button_left)
+            right = GPIO.input(self.config.pin_button_right)
+            if prev_left and not left:
+                self.Button1pressed(None)
+            if prev_right and not right:
+                self.Button2pressed(None)
+            prev_left = left
+            prev_right = right
+            time.sleep(0.02)
+
     # create a small preview of the layout for the first screen
     def createCardLayoutPreview(self):
         logging.debug("createCardLayoutPreview")
@@ -332,8 +342,10 @@ class Photobooth:
     def on_exit_PowerOn(self):
         logging.debug("now on_exit_PowerOn")
 
-        # create the preview of the layouts
-        self.createCardLayoutPreview()
+        try:
+            self.createCardLayoutPreview()
+        except Exception as e:
+            logging.warning(f"createCardLayoutPreview skipped: {e}")
 
         # remove overlay "turn on printer", if still on display
         self.remove_overlay(self.overlay_screen_turnOnPrinter)
