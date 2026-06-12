@@ -368,6 +368,7 @@ class Photobooth:
         # on start of every photosession, create an unique filename, containing date and time
         self.layout[0].fileNamePrefix = self.get_base_filename_for_images()
         self.layout[1].fileNamePrefix = self.get_base_filename_for_images()
+        self.remove_overlay(self.overlay_screen_blackbackground)
         self.remove_overlay(self.overlay_choose_layout)
 
     # countdown to zero and take pictures
