@@ -25,12 +25,18 @@ class DisplayManager:
         self._preview_frame = None   # PIL.Image, updated by preview thread
         self._overlays = {}          # id -> (layer, PIL.Image)
         self._next_id = 0
+        self._overlay_version = 0    # incremented on add/remove
         self._lock = threading.Lock()
         self._running = True
 
-        # hide terminal cursor and clear console over framebuffer
+        # Overlay composite cache — recomputed only when _overlay_version changes
+        self._overlay_cache_version = -1
+        self._overlay_composite = None  # RGBA PIL.Image or None
+
+        # Keep framebuffer file handle open to avoid 30x/s open/close overhead
+        self._fb_fd = None
+
         self._hide_cursor()
-        # blank screen on start
         self._write_black()
 
         self._thread = threading.Thread(target=self._render_loop, daemon=True)
@@ -40,10 +46,9 @@ class DisplayManager:
     # ── Public API ────────────────────────────────────────────────────────────
 
     def update_preview(self, pil_image):
-        """Called from camera preview thread. Thread-safe."""
-        img = pil_image.convert('RGB').resize((self.screen_w, self.screen_h), Image.LANCZOS)
+        """Called from camera preview thread. Already RGB + correct size."""
         with self._lock:
-            self._preview_frame = img
+            self._preview_frame = pil_image
 
     def show_message(self, text, color=(255, 255, 255)):
         """Render centered text on black and register as overlay. Returns overlay_id."""
@@ -71,6 +76,7 @@ class DisplayManager:
             oid = self._next_id
             self._next_id += 1
             self._overlays[oid] = (10, img)
+            self._overlay_version += 1
         return oid
 
     def add_overlay(self, image_path, layer=3):
@@ -80,11 +86,12 @@ class DisplayManager:
             return -1
         try:
             img = Image.open(image_path).convert('RGBA')
-            img = img.resize((self.screen_w, self.screen_h), Image.LANCZOS)
+            img = img.resize((self.screen_w, self.screen_h), Image.BILINEAR)
             with self._lock:
                 oid = self._next_id
                 self._next_id += 1
                 self._overlays[oid] = (layer, img)
+                self._overlay_version += 1
             return oid
         except Exception as e:
             logging.error(f"add_overlay error ({image_path}): {e}")
@@ -94,11 +101,18 @@ class DisplayManager:
         if overlay_id == -1:
             return
         with self._lock:
-            self._overlays.pop(overlay_id, None)
+            if overlay_id in self._overlays:
+                self._overlays.pop(overlay_id)
+                self._overlay_version += 1
 
     def quit(self):
         self._running = False
         self._write_black()
+        if self._fb_fd:
+            try:
+                self._fb_fd.close()
+            except Exception:
+                pass
 
     # ── Render loop ───────────────────────────────────────────────────────────
 
@@ -118,17 +132,34 @@ class DisplayManager:
     def _render_frame(self):
         with self._lock:
             preview = self._preview_frame
-            overlays = sorted(self._overlays.values(), key=lambda x: x[0])
+            version = self._overlay_version
+            overlays = sorted(self._overlays.values(), key=lambda x: x[0]) if version != self._overlay_cache_version else None
 
-        # composite: black → preview → overlays (by layer)
-        canvas = Image.new('RGB', (self.screen_w, self.screen_h), (0, 0, 0))
-        if preview:
-            canvas.paste(preview)
-        for _, overlay_img in overlays:
-            canvas.paste(overlay_img, (0, 0), overlay_img)  # uses RGBA mask
+        # Rebuild overlay composite only when something changed
+        if version != self._overlay_cache_version:
+            if overlays:
+                composite = Image.new('RGBA', (self.screen_w, self.screen_h), (0, 0, 0, 0))
+                for _, overlay_img in overlays:
+                    composite.paste(overlay_img, (0, 0), overlay_img)
+                self._overlay_composite = composite
+            else:
+                self._overlay_composite = None
+            self._overlay_cache_version = version
+
+        # Fast path: preview only, no overlays
+        if preview is not None and self._overlay_composite is None:
+            canvas = preview
+        elif preview is not None:
+            canvas = preview.copy()
+            canvas.paste(self._overlay_composite, (0, 0), self._overlay_composite)
+        elif self._overlay_composite is not None:
+            canvas = Image.new('RGB', (self.screen_w, self.screen_h), (0, 0, 0))
+            canvas.paste(self._overlay_composite, (0, 0), self._overlay_composite)
+        else:
+            return  # nothing to render
 
         if self.screen_w != self._fb_w or self.screen_h != self._fb_h:
-            canvas = canvas.resize((self._fb_w, self._fb_h), Image.LANCZOS)
+            canvas = canvas.resize((self._fb_w, self._fb_h), Image.BILINEAR)
 
         self._write_to_fb(canvas)
 
@@ -137,11 +168,21 @@ class DisplayManager:
     def _write_to_fb(self, img):
         data = self._encode(img)
         try:
-            with open(self._fb_path, 'wb') as fb:
-                fb.write(data)
+            if self._fb_fd is None:
+                self._fb_fd = open(self._fb_path, 'wb')
+            self._fb_fd.seek(0)
+            self._fb_fd.write(data)
+            self._fb_fd.flush()
         except PermissionError:
             logging.error("Cannot write to /dev/fb0 — add user to 'video' group")
             self._running = False
+        except Exception as e:
+            logging.warning(f"FB write error: {e}")
+            try:
+                self._fb_fd.close()
+            except Exception:
+                pass
+            self._fb_fd = None  # reopen next frame
 
     def _encode(self, img):
         if self._bits == 16:

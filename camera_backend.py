@@ -68,7 +68,7 @@ class GPhoto2Backend:
                     preview = self._camera.capture_preview()
                 data = preview.get_data_and_size()
                 img = Image.open(io.BytesIO(bytes(data))).convert('RGB')
-                img = img.resize((self._screen_w, self._screen_h), Image.LANCZOS)
+                img = img.resize((self._screen_w, self._screen_h), Image.BILINEAR)
                 img = self._apply_flips(img)
                 img = self._apply_color_effect(img)
                 if self._on_preview_frame:
