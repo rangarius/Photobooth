@@ -303,13 +303,10 @@ class Photobooth:
         # save screen to file for displaying
         screen.save(filename=self.config.screen_choose_layout)
 
-    # This function captures the photo
     def taking_photo(self, photo_number):
         logging.debug("Taking Photo")
-        # get the filename also for later use
         self.lastfilename = self.layout[self.current_Layout - 1].pictures[photo_number - 1].fileName
-
-        ## take a pictures
+        self.stoppreview()  # release camera before capture to avoid gphoto2 lock conflict
         self.camera.capture(self.lastfilename)
         logging.debug("Photo (" + str(photo_number) + ") saved: " + self.lastfilename)
 
@@ -359,7 +356,7 @@ class Photobooth:
         self.time_stamp_button2 = 0.0
 
         logging.debug("now on_enter_Start")
-        self.overlay_screen_blackbackground = self.overlay_image(self.config.screen_black, 0, 2)
+        self.overlay_screen_blackbackground = -1  # no black bg — let preview show through
         self.overlay_choose_layout = self.overlay_image_transparency(self.config.screen_choose_layout, 0, 7)
 
     # leave start screen
