@@ -25,7 +25,7 @@ Raspberry Pi–based photobooth with live preview, multi-shot countdown, templat
 Clone the repo onto a fresh **Raspbian Bookworm** image, then run:
 
 ```bash
-git clone https://github.com/sebmueller/Photobooth /home/pi/Photobooth
+git clone https://github.com/rangarius/Photobooth /home/pi/Photobooth
 cd /home/pi/Photobooth
 chmod +x install.sh
 ./install.sh
@@ -46,6 +46,19 @@ After the script finishes:
 ```bash
 sudo reboot
 ```
+
+### WiFi fallback AP
+
+If the Pi can't reach a known WiFi network within 30 seconds after boot, it automatically opens its own hotspot:
+
+| | |
+|---|---|
+| SSID | `Photobooth` |
+| Password | `photobooth` |
+| Pi IP | `192.168.4.1` |
+| Web UI | `http://192.168.4.1:4010/ui` |
+
+Once connected, open `http://192.168.4.1:4010/ui` to configure WiFi or manage the booth remotely.
 
 ### After reboot — add the printer
 

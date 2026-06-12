@@ -22,13 +22,13 @@ else
 fi
 
 # ── 1. System-Update ─────────────────────────────────────────────────────────
-echo "[1/7] System aktualisieren..."
+echo "[1/8] System aktualisieren..."
 sudo apt-get update
 sudo apt-get upgrade -y
 echo ""
 
 # ── 2. System-Pakete ─────────────────────────────────────────────────────────
-echo "[2/7] System-Pakete installieren..."
+echo "[2/8] System-Pakete installieren..."
 sudo apt-get install -y \
     git \
     gphoto2 \
@@ -45,13 +45,15 @@ sudo apt-get install -y \
     libsdl2-dev \
     libsdl2-image-dev \
     libsdl2-ttf-dev \
+    hostapd \
+    dnsmasq \
     w3m \
     vim \
     mc
 echo ""
 
 # ── 3. Python-Pakete ─────────────────────────────────────────────────────────
-echo "[3/7] Python-Pakete installieren..."
+echo "[3/8] Python-Pakete installieren..."
 pip3 install --break-system-packages \
     gphoto2 \
     pygame \
@@ -65,14 +67,8 @@ pip3 install --break-system-packages \
     psutil
 echo ""
 
-# ── 4. Nutzer-Gruppen ─────────────────────────────────────────────────────────
-echo "[4/7] Nutzer-Gruppen einrichten..."
-sudo usermod -aG lp,lpadmin,video,input,plugdev "$CURRENT_USER"
-echo "  $CURRENT_USER → lp, lpadmin, video, input, plugdev"
-echo ""
-
-# ── 5. CUPS konfigurieren ─────────────────────────────────────────────────────
-echo "[5/7] CUPS konfigurieren..."
+# ── 4. CUPS konfigurieren ─────────────────────────────────────────────────────
+echo "[4/8] CUPS konfigurieren..."
 sudo systemctl enable cups
 sudo systemctl start cups
 
@@ -101,10 +97,16 @@ print("  cupsd.conf: Port 631 + Allow @LOCAL gesetzt")
 EOF
 
 sudo systemctl restart cups
+
+# Nutzer-Gruppen — NACH CUPS (lpadmin-Gruppe wird von cups-Paket angelegt)
+echo "[5/8] Nutzer-Gruppen einrichten..."
+sudo groupadd -f lpadmin   # -f = kein Fehler wenn Gruppe schon existiert
+sudo usermod -aG lp,lpadmin,video,input,plugdev "$CURRENT_USER"
+echo "  $CURRENT_USER → lp, lpadmin, video, input, plugdev"
 echo ""
 
 # ── 6. ImageMagick Policy (Wand braucht höhere Limits) ────────────────────────
-echo "[6/7] ImageMagick Policy anpassen..."
+echo "[6/8] ImageMagick Policy anpassen..."
 IM_POLICY=""
 for p in /etc/ImageMagick-6/policy.xml /etc/ImageMagick-7/policy.xml; do
     [ -f "$p" ] && IM_POLICY="$p" && break
@@ -120,7 +122,56 @@ fi
 echo ""
 
 # ── 7. Autostart + Quiet Boot ─────────────────────────────────────────────────
-echo "[7/7] Autostart + Quiet Boot einrichten..."
+echo "[7/8] WiFi-AP-Fallback einrichten..."
+
+# Fallback-Script: wartet 30s auf WiFi-Verbindung, öffnet sonst eigenen AP
+sudo tee /usr/local/bin/photobooth-wifi.sh > /dev/null <<'WIFIEOF'
+#!/bin/bash
+AP_SSID="Photobooth"
+AP_PASS="photobooth"
+TIMEOUT=30
+
+for i in $(seq 1 $TIMEOUT); do
+    if nmcli -t -f TYPE,STATE dev 2>/dev/null | grep -q "wifi:connected"; then
+        exit 0
+    fi
+    sleep 1
+done
+
+# Kein WiFi gefunden — AP-Verbindung anlegen (einmalig) und starten
+if ! nmcli con show photobooth-ap &>/dev/null; then
+    nmcli con add type wifi ifname wlan0 con-name photobooth-ap autoconnect no \
+        ssid "$AP_SSID" mode ap \
+        wifi-sec.key-mgmt wpa-psk wifi-sec.psk "$AP_PASS" \
+        ipv4.method shared
+fi
+nmcli con up photobooth-ap
+WIFIEOF
+sudo chmod +x /usr/local/bin/photobooth-wifi.sh
+
+# Systemd-Service für WiFi-Fallback
+sudo tee /etc/systemd/system/photobooth-wifi.service > /dev/null <<'WIFISVCEOF'
+[Unit]
+Description=Photobooth WiFi fallback AP
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/photobooth-wifi.sh
+
+[Install]
+WantedBy=multi-user.target
+WIFISVCEOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable photobooth-wifi.service
+echo "  WiFi-Fallback aktiviert (SSID: Photobooth, Passwort: photobooth)"
+echo ""
+
+# ── 8. Autostart + Quiet Boot ─────────────────────────────────────────────────
+echo "[8/8] Autostart + Quiet Boot einrichten..."
 
 # Systemd-Service (zuverlässiger als rc.local auf modernem Raspbian)
 sudo tee /etc/systemd/system/photobooth.service > /dev/null <<SVCEOF
@@ -168,4 +219,11 @@ echo "      → Drucker hinzufügen → Canon SELPHY CP1300"
 echo "      → Standardeinstellungen → Borderless = Yes"
 echo "   3. Canon R50 per USB anschließen"
 echo "   4. sudo systemctl status photobooth  (startet automatisch)"
+echo ""
+echo "   WiFi-Fallback:"
+echo "   Falls kein bekanntes WLAN erreichbar ist, öffnet der Pi"
+echo "   nach 30s einen eigenen Hotspot:"
+echo "     SSID:     Photobooth"
+echo "     Passwort: photobooth"
+echo "     Pi-IP:    192.168.4.1"
 echo "================================================"
