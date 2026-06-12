@@ -99,6 +99,13 @@ class Photobooth:
                 self.camera.setup(self.config)
                 self.display.remove_overlay(msg_id)
                 logging.info("Camera ready")
+                self.camera.apply_settings(
+                    iso=self.config.camera_iso,
+                    awb_mode=self.config.camera_awb_mode,
+                    exposure_mode=self.config.camera_exposure_mode,
+                    shutterspeed=self.config.camera_shutterspeed,
+                    aperture=self.config.camera_aperture,
+                )
                 return
             except Exception as e:
                 logging.warning(f"Camera not available ({e}) — retrying in 5s")

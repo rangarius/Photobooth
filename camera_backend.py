@@ -115,19 +115,38 @@ class GPhoto2Backend:
 
         if not camera_fields:
             return
+
+        # Stop preview while changing settings — gphoto2 returns -110 (I/O in
+        # progress) if set_config() races with an active capture_preview() transfer.
+        was_previewing = self._preview_active
+        if was_previewing:
+            self.stop_preview()
         try:
-            with self._lock:
-                cam_config = self._camera.get_config()
-                for node_name, value in camera_fields.items():
-                    try:
-                        node = cam_config.get_child_by_name(node_name)
-                        node.set_value(str(value))
-                        logging.debug(f"Camera: {node_name} = {value}")
-                    except Exception as e:
-                        logging.warning(f"Camera set {node_name}={value} failed: {e}")
-                self._camera.set_config(cam_config)
+            cam_config = self._camera.get_config()
+            for node_name, value in camera_fields.items():
+                try:
+                    node = cam_config.get_child_by_name(node_name)
+                    node.set_value(str(value))
+                    logging.debug(f"Camera: {node_name} = {value}")
+                except Exception as e:
+                    logging.warning(f"Camera set {node_name}={value} failed: {e}")
+            # Retry set_config up to 3 times — -110 can occur if a previous USB
+            # transfer (e.g. output=PC in setup()) hasn't fully completed yet.
+            for attempt in range(3):
+                try:
+                    self._camera.set_config(cam_config)
+                    break
+                except gp.GPhoto2Error as e:
+                    if e.code == -110 and attempt < 2:
+                        time.sleep(0.3)
+                    else:
+                        logging.warning(f"apply_settings set_config failed: {e}")
+                        break
         except Exception as e:
             logging.warning(f"apply_settings error: {e}")
+        finally:
+            if was_previewing and self._on_preview_frame:
+                self.start_preview(self._on_preview_frame)
 
     def close(self):
         self.stop_preview()
