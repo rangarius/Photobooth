@@ -200,6 +200,26 @@ def api_status():
 
 
 # ---------------------------------------------------------------------------
+# JSON API — button simulation (for testing without physical buttons)
+# ---------------------------------------------------------------------------
+
+@app.route("/button/<int:num>", methods=["POST"])
+def api_button(num):
+    if not app.photobooth:
+        return jsonify({"msg": "no photobooth"}), 503
+    try:
+        if num == 1:
+            app.photobooth.Button1pressed(None)
+        elif num == 2:
+            app.photobooth.Button2pressed(None)
+        else:
+            return jsonify({"msg": "invalid button"}), 400
+        return jsonify({"msg": f"button {num} pressed", "state": app.photobooth.state})
+    except Exception as e:
+        return jsonify({"msg": "error", "detail": str(e)}), 500
+
+
+# ---------------------------------------------------------------------------
 # JSON API — images
 # ---------------------------------------------------------------------------
 
