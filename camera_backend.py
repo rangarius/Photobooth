@@ -97,35 +97,34 @@ class GPhoto2Backend:
     def set_color_effect(self, effect):
         self._color_effect = effect
 
-    def apply_settings(self, iso=None, awb_mode=None, awb_gains_red=None,
-                       awb_gains_blue=None, flip_h=None, flip_v=None):
+    def apply_settings(self, iso=None, awb_mode=None, exposure_mode=None,
+                       shutterspeed=None, aperture=None,
+                       flip_h=None, flip_v=None, **_ignored):
         if flip_h is not None:
             self._flip_h = flip_h
         if flip_v is not None:
             self._flip_v = flip_v
-        if iso is None and awb_mode is None:
+
+        camera_fields = {k: v for k, v in {
+            'iso': iso,
+            'whitebalance': awb_mode,
+            'autoexposuremode': exposure_mode,
+            'shutterspeed': None if shutterspeed in (None, 'auto') else shutterspeed,
+            'aperture': None if aperture in (None, 'auto') else aperture,
+        }.items() if v is not None}
+
+        if not camera_fields:
             return
         try:
             with self._lock:
                 cam_config = self._camera.get_config()
-                if iso is not None:
+                for node_name, value in camera_fields.items():
                     try:
-                        iso_node = cam_config.get_child_by_name('iso')
-                        iso_node.set_value('Auto' if iso == 0 else str(iso))
+                        node = cam_config.get_child_by_name(node_name)
+                        node.set_value(str(value))
+                        logging.debug(f"Camera: {node_name} = {value}")
                     except Exception as e:
-                        logging.warning(f"ISO set error: {e}")
-                if awb_mode is not None:
-                    try:
-                        wb_map = {
-                            'auto': 'Auto', 'sunlight': 'Daylight',
-                            'cloudy': 'Cloudy', 'shade': 'Shade',
-                            'tungsten': 'Tungsten', 'fluorescent': 'Fluorescent',
-                            'flash': 'Flash', 'off': 'Manual',
-                        }
-                        wb_node = cam_config.get_child_by_name('whitebalance')
-                        wb_node.set_value(wb_map.get(awb_mode, awb_mode))
-                    except Exception as e:
-                        logging.warning(f"WB set error: {e}")
+                        logging.warning(f"Camera set {node_name}={value} failed: {e}")
                 self._camera.set_config(cam_config)
         except Exception as e:
             logging.warning(f"apply_settings error: {e}")

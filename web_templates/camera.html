@@ -9,15 +9,38 @@
 <div id="apply-msg"></div>
 
 <form method="POST" action="/ui/camera/save" id="cam-form">
+
   <div class="card">
-    <h2>Exposure</h2>
+    <h2>Exposure Mode</h2>
     <div class="form-row">
-      <label>ISO <small>0 = automatic</small></label>
+      <label>Mode</label>
+      <select name="camera_exposure_mode" id="exposure_mode" onchange="updateExposureVisibility()">
+        {% for mode in exposure_modes %}
+        <option value="{{ mode }}" {% if cfg.camera_exposure_mode == mode %}selected{% endif %}>{{ mode }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row" id="row-shutter">
+      <label>Shutter Speed <small id="shutter-hint"></small></label>
+      <select name="camera_shutterspeed" id="shutterspeed">
+        {% for s in shutter_speeds %}
+        <option value="{{ s }}" {% if cfg.camera_shutterspeed == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row" id="row-aperture">
+      <label>Aperture <small id="aperture-hint"></small></label>
+      <select name="camera_aperture" id="aperture">
+        {% for a in apertures %}
+        <option value="{{ a }}" {% if cfg.camera_aperture == a %}selected{% endif %}>f/{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-row">
+      <label>ISO</label>
       <select name="camera_iso" id="iso">
-        {% for iso in [0, 100, 200, 400, 800] %}
-        <option value="{{ iso }}" {% if cfg.camera_iso == iso %}selected{% endif %}>
-          {{ "Auto" if iso == 0 else iso }}
-        </option>
+        {% for val in iso_values %}
+        <option value="{{ val }}" {% if cfg.camera_iso == val %}selected{% endif %}>{{ val }}</option>
         {% endfor %}
       </select>
     </div>
@@ -26,28 +49,12 @@
   <div class="card">
     <h2>White Balance</h2>
     <div class="form-row">
-      <label>AWB Mode</label>
+      <label>Mode</label>
       <select name="camera_awb_mode" id="awb_mode">
-        {% for mode in awb_modes %}
-        <option value="{{ mode }}" {% if cfg.camera_awb_mode == mode %}selected{% endif %}>
-          {{ mode | capitalize }}
-        </option>
+        {% for mode in wb_modes %}
+        <option value="{{ mode }}" {% if cfg.camera_awb_mode == mode %}selected{% endif %}>{{ mode }}</option>
         {% endfor %}
       </select>
-    </div>
-    <div class="form-row" id="gains-row">
-      <label>Gain — Red <small>Only used when AWB = off</small></label>
-      <input type="range" name="camera_awb_gains_red" id="gain_r"
-             min="0.0" max="8.0" step="0.1" value="{{ cfg.camera_awb_gains_red }}"
-             oninput="document.getElementById('gain_r_val').textContent=parseFloat(this.value).toFixed(1)">
-      <span class="range-val" id="gain_r_val">{{ "%.1f"|format(cfg.camera_awb_gains_red) }}</span>
-    </div>
-    <div class="form-row" id="gains-row-b">
-      <label>Gain — Blue <small>Only used when AWB = off</small></label>
-      <input type="range" name="camera_awb_gains_blue" id="gain_b"
-             min="0.0" max="8.0" step="0.1" value="{{ cfg.camera_awb_gains_blue }}"
-             oninput="document.getElementById('gain_b_val').textContent=parseFloat(this.value).toFixed(1)">
-      <span class="range-val" id="gain_b_val">{{ "%.1f"|format(cfg.camera_awb_gains_blue) }}</span>
     </div>
   </div>
 
@@ -70,22 +77,27 @@
 </form>
 
 <script>
-// Dim the gain sliders when AWB != off
-function updateGainVisibility() {
-  const mode = document.getElementById('awb_mode').value;
-  const opacity = mode === 'off' ? 1 : 0.45;
-  document.getElementById('gains-row').style.opacity = opacity;
-  document.getElementById('gains-row-b').style.opacity = opacity;
+// Show/dim shutter and aperture selects depending on exposure mode
+function updateExposureVisibility() {
+  const mode = document.getElementById('exposure_mode').value;
+  const shutterActive = mode === 'Tv' || mode === 'Manual';
+  const apertureActive = mode === 'Av' || mode === 'Manual';
+
+  document.getElementById('row-shutter').style.opacity = shutterActive ? 1 : 0.4;
+  document.getElementById('shutterspeed').disabled = !shutterActive;
+  document.getElementById('shutter-hint').textContent = shutterActive ? '' : 'controlled by camera in ' + mode + ' mode';
+
+  document.getElementById('row-aperture').style.opacity = apertureActive ? 1 : 0.4;
+  document.getElementById('aperture').disabled = !apertureActive;
+  document.getElementById('aperture-hint').textContent = apertureActive ? '' : 'controlled by camera in ' + mode + ' mode';
 }
-document.getElementById('awb_mode').addEventListener('change', updateGainVisibility);
-updateGainVisibility();
+updateExposureVisibility();
 
 async function applyLive() {
   const form = document.getElementById('cam-form');
   const fd = new FormData(form);
   const data = {};
   fd.forEach((v, k) => data[k] = v);
-  // checkboxes not in FormData when unchecked
   data.flip_screen_h = form.querySelector('[name=flip_screen_h]').checked ? 'on' : 'false';
   data.flip_screen_v = form.querySelector('[name=flip_screen_v]').checked ? 'on' : 'false';
 

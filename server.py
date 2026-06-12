@@ -166,8 +166,9 @@ def api_camera_apply():
             app.photobooth.camera.apply_settings(
                 iso=cfg.camera_iso,
                 awb_mode=cfg.camera_awb_mode,
-                awb_gains_red=cfg.camera_awb_gains_red,
-                awb_gains_blue=cfg.camera_awb_gains_blue,
+                exposure_mode=cfg.camera_exposure_mode,
+                shutterspeed=cfg.camera_shutterspeed,
+                aperture=cfg.camera_aperture,
                 flip_h=cfg.flip_screen_h,
                 flip_v=cfg.flip_screen_v,
             )
@@ -332,19 +333,35 @@ def ui_config_save():
 @requires_auth
 def ui_camera():
     cfg = app.configParser.config
-    awb_modes = ["auto", "sunlight", "cloudy", "shade", "tungsten", "fluorescent", "flash", "horizon", "off"]
+    wb_modes = ["Auto", "Daylight", "Shadow", "Cloudy", "Tungsten", "Fluorescent", "Flash", "Manual"]
+    exposure_modes = ["P", "Tv", "Av", "Manual", "Auto"]
+    shutter_speeds = [
+        "bulb",
+        "30", "25", "20", "15", "13", "10.3", "8", "6.3", "5", "4", "3.2", "2.5", "2", "1.6", "1.3", "1",
+        "0.8", "0.6", "0.5", "0.4", "0.3",
+        "1/4", "1/5", "1/6", "1/8", "1/10", "1/13", "1/15", "1/20", "1/25", "1/30",
+        "1/40", "1/50", "1/60", "1/80", "1/100", "1/125", "1/160", "1/200", "1/250",
+        "1/320", "1/400", "1/500", "1/640", "1/800", "1/1000", "1/1250", "1/1600",
+        "1/2000", "1/2500", "1/3200", "1/4000",
+    ]
+    apertures = ["5", "5.6", "6.3", "7.1", "8", "9", "10", "11", "13", "14", "16", "18", "20", "22", "25"]
+    iso_values = ["Auto", "100", "125", "160", "200", "250", "320", "400", "500", "640",
+                  "800", "1000", "1250", "1600", "3200", "6400", "12800", "25600"]
     msg = request.args.get("msg")
-    return render_template("camera.html", cfg=cfg, awb_modes=awb_modes, msg=msg)
+    return render_template("camera.html", cfg=cfg, wb_modes=wb_modes,
+                           exposure_modes=exposure_modes, shutter_speeds=shutter_speeds,
+                           apertures=apertures, iso_values=iso_values, msg=msg)
 
 
 @app.route("/ui/camera/save", methods=["POST"])
 @requires_auth
 def ui_camera_save():
     data = {
+        "camera_exposure_mode": request.form.get("camera_exposure_mode"),
         "camera_awb_mode": request.form.get("camera_awb_mode"),
-        "camera_awb_gains_red": request.form.get("camera_awb_gains_red"),
-        "camera_awb_gains_blue": request.form.get("camera_awb_gains_blue"),
         "camera_iso": request.form.get("camera_iso"),
+        "camera_shutterspeed": request.form.get("camera_shutterspeed"),
+        "camera_aperture": request.form.get("camera_aperture"),
         "flip_screen_h": "on" if request.form.get("flip_screen_h") else "false",
         "flip_screen_v": "on" if request.form.get("flip_screen_v") else "false",
     }

@@ -132,10 +132,11 @@ class Config:
     screen_h = 600
     flip_screen_h = False
     flip_screen_v = False
-    camera_awb_mode = "auto"
-    camera_awb_gains_red = 1.6
-    camera_awb_gains_blue = 1.6
-    camera_iso = 0
+    camera_exposure_mode = "P"
+    camera_awb_mode = "Auto"
+    camera_iso = "Auto"
+    camera_shutterspeed = "auto"
+    camera_aperture = "auto"
     webserver_user = ""
     webserver_password = ""
     base_path = os.path.dirname(os.path.realpath(__file__))
@@ -260,10 +261,11 @@ class ConfigParser:
         self.config.screen_change_paper = os.path.join(self.config.screens_abs_file_path,
             self.configParser.get("Screens", "screen_change_paper", fallback="ScreenChangePaper.png"))
 
-        self.config.camera_awb_mode = self.configParser.get("Camera", "camera_awb_mode", fallback="auto")
-        self.config.camera_awb_gains_red = float(self.configParser.get("Camera", "camera_awb_gains_red", fallback="1.6"))
-        self.config.camera_awb_gains_blue = float(self.configParser.get("Camera", "camera_awb_gains_blue", fallback="1.6"))
-        self.config.camera_iso = int(self.configParser.get("Camera", "camera_iso", fallback="0"))
+        self.config.camera_exposure_mode = self.configParser.get("Camera", "camera_exposure_mode", fallback="P")
+        self.config.camera_awb_mode = self.configParser.get("Camera", "camera_awb_mode", fallback="Auto")
+        self.config.camera_iso = self.configParser.get("Camera", "camera_iso", fallback="Auto")
+        self.config.camera_shutterspeed = self.configParser.get("Camera", "camera_shutterspeed", fallback="auto")
+        self.config.camera_aperture = self.configParser.get("Camera", "camera_aperture", fallback="auto")
 
         self.config.webserver_user = self.configParser.get("WebServer", "webserver_user", fallback="")
         self.config.webserver_password = self.configParser.get("WebServer", "webserver_password", fallback="")
@@ -298,14 +300,16 @@ class ConfigParser:
             self.config.debug = data["debug"] in (True, "True", "true", "on", "1")
         if data.get("printPicsEnable") is not None:
             self.config.printPicsEnable = data["printPicsEnable"] in (True, "True", "true", "on", "1")
+        if data.get("camera_exposure_mode") is not None:
+            self.config.camera_exposure_mode = str(data["camera_exposure_mode"])
         if data.get("camera_awb_mode") is not None:
             self.config.camera_awb_mode = str(data["camera_awb_mode"])
-        if data.get("camera_awb_gains_red") is not None:
-            self.config.camera_awb_gains_red = float(data["camera_awb_gains_red"])
-        if data.get("camera_awb_gains_blue") is not None:
-            self.config.camera_awb_gains_blue = float(data["camera_awb_gains_blue"])
         if data.get("camera_iso") is not None:
-            self.config.camera_iso = int(data["camera_iso"])
+            self.config.camera_iso = str(data["camera_iso"])
+        if data.get("camera_shutterspeed") is not None:
+            self.config.camera_shutterspeed = str(data["camera_shutterspeed"])
+        if data.get("camera_aperture") is not None:
+            self.config.camera_aperture = str(data["camera_aperture"])
         if data.get("webserver_user") is not None:
             self.config.webserver_user = str(data["webserver_user"])
         if data.get("webserver_password") is not None and data["webserver_password"] != "":
@@ -333,10 +337,11 @@ class ConfigParser:
         self.configParser.set("Resolution", "flip_screen_h", str(self.config.flip_screen_h))
         self.configParser.set("Resolution", "flip_screen_v", str(self.config.flip_screen_v))
 
+        self.configParser.set("Camera", "camera_exposure_mode", str(self.config.camera_exposure_mode))
         self.configParser.set("Camera", "camera_awb_mode", str(self.config.camera_awb_mode))
-        self.configParser.set("Camera", "camera_awb_gains_red", str(self.config.camera_awb_gains_red))
-        self.configParser.set("Camera", "camera_awb_gains_blue", str(self.config.camera_awb_gains_blue))
         self.configParser.set("Camera", "camera_iso", str(self.config.camera_iso))
+        self.configParser.set("Camera", "camera_shutterspeed", str(self.config.camera_shutterspeed))
+        self.configParser.set("Camera", "camera_aperture", str(self.config.camera_aperture))
 
         self.configParser.set("WebServer", "webserver_user", str(self.config.webserver_user))
         self.configParser.set("WebServer", "webserver_password", str(self.config.webserver_password))
