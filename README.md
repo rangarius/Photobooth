@@ -1,12 +1,8 @@
 # Photobooth
 
-Raspberry Pi–based photobooth with live preview, multi-shot countdown, template-driven photo cards, and direct printing to a Canon SELPHY CP1300. A Flask-based web UI (port `4010`) exposes full runtime configuration, layout editing, and screen/photo browsing so the booth can be managed from a phone or laptop on the same network.
+Raspberry Pi–based photobooth with live preview, multi-shot countdown, template-driven photo cards, and direct printing to a Canon SELPHY CP1300. A Flask web UI (port `4010`) provides full runtime configuration, layout editing, and photo browsing from any device on the network.
 
-## Credits / Fork attribution
-
-- Fork of **[sebmueller/Photobooth](https://github.com/sebmueller/Photobooth)**.
-- Original concept and hardware writeup: **[ericBcreator — Photo Booth powered by a Raspberry Pi](https://www.hackster.io/ericBcreator/photo-booth-powered-by-a-raspberry-pi-23b491)**.
-- ImageMagick memory tuning reference: https://blog.bigbinary.com/2018/09/12/configuring-memory-allocation-in-imagemagick.html
+**Fork of [sebmueller/Photobooth](https://github.com/sebmueller/Photobooth)** — original concept by [ericBcreator](https://www.hackster.io/ericBcreator/photo-booth-powered-by-a-raspberry-pi-23b491).
 
 ---
 
@@ -14,236 +10,203 @@ Raspberry Pi–based photobooth with live preview, multi-shot countdown, templat
 
 | Component | Notes |
 |---|---|
-| Raspberry Pi 3 | RPi 4 works too |
-| RaspiCam | uses `picamera` (legacy stack) |
-| 10.1" HDMI display | 1024 × 600 |
+| Raspberry Pi 3/4/5 | |
+| Canon EOS R50 | USB, controlled via gphoto2 |
+| 10.1" HDMI display | 1024 × 600, auto-detected via EDID |
 | Canon SELPHY CP1300 | USB, driven via CUPS + Gutenprint |
-| 2× Arcade buttons | GPIO 23 (left) + GPIO 24 (right), internal pull-ups |
-| 5 V / 2–5 A PSU | |
-| (optional) DS3231 RTC | I²C, address `0x68` |
-| (optional) USB stick | auto-detected for photo copy |
+| 2× Arcade buttons | GPIO 23 (left) + GPIO 24 (right) |
+| 5 V / 2 A PSU | |
+| (optional) DS3231 RTC | I²C at `0x68` |
+
+---
+
+## Install
+
+Clone the repo onto a fresh **Raspbian Bookworm** image, then run:
+
+```bash
+git clone https://github.com/sebmueller/Photobooth /home/pi/Photobooth
+cd /home/pi/Photobooth
+chmod +x install.sh
+./install.sh
+```
+
+`install.sh` does everything non-interactive in one pass:
+
+1. `apt-get upgrade` + system packages (gphoto2, CUPS, Gutenprint, ImageMagick, SDL2, …)
+2. Python packages via pip
+3. User added to groups: `lp`, `lpadmin`, `video`, `input`, `plugdev`
+4. CUPS configured: `Port 631`, `Allow @LOCAL`, service enabled
+5. ImageMagick memory limits raised (512 MiB RAM, 2 GiB disk)
+6. Autostart as a **Systemd service** (`photobooth.service`), enabled at boot
+7. Quiet boot (`console=tty3 quiet splash …`) written to `cmdline.txt`
+
+After the script finishes:
+
+```bash
+sudo reboot
+```
+
+### After reboot — add the printer
+
+Browse to `http://<pi-ip>:631/admin`, log in as `pi`, then:
+
+- **Add Printer** → *Canon SELPHY CP1300*
+- **Set Default Options** → *Printer Features Common* → **Borderless = Yes**
+
+### Camera
+
+Connect the Canon R50 via USB and set the camera to **PC Connection → PTP** (not MTP).
+
+The booth detects the camera on startup. If the camera is not connected yet, a **"Bitte Kamera anschließen"** message is shown on the display and the app retries automatically every 5 seconds — no restart needed.
 
 ---
 
 ## Architecture
 
-### Runtime
-
-`photobooth.py` runs a finite state machine (`transitions.Machine`) that drives the full capture → composite → print loop:
+### State machine (`photobooth.py`)
 
 ```
 PowerOn → Start → CountdownPhoto → TakePhoto → ShowPhoto
-          ↑                                      ↓ (Button1 retake / Button2 next / MaxPics)
-          └── Restart ← PrintCard ← ShowCard ← CreateCard
-                           │
-                           ├── RefillPaper
-                           └── RefillInk
+  ↑                                               ↓ (Button1 retake / Button2 next / MaxPics)
+  └─── Restart ←── PrintCard ←── ShowCard ←── CreateCard
+                       │
+                       ├── RefillPaper
+                       └── RefillInk
 ```
 
-- **PowerOn** — waits for the SELPHY to appear on USB (vendor id `0x04A9`) or as a CUPS printer.
-- **Start** — shows the layout chooser; Button1 = layout 1, Button2 = layout 2.
-- **CountdownPhoto → TakePhoto → ShowPhoto** — overlays screens `ScreenCountdown5..0`, captures via `picamera`, then shows the shot with "retake / next" prompt.
-- **CreateCard** — composites shots into the chosen card template with Wand / ImageMagick.
-- **PrintCard** — sends the card to CUPS, polls printer state; `error: 02/03` → `RefillPaper`, `error: 06` → `RefillInk`.
-- **Restart** — closes and re-opens the camera to avoid the overlay memory leak.
+- **PowerOn** — waits for the SELPHY (USB vendor `0x04A9` or any CUPS printer).
+- **Start** — shows layout chooser; Button1 = layout 1, Button2 = layout 2.
+- **CountdownPhoto → TakePhoto** — overlays `ScreenCountdown5..0`, then captures via gphoto2.
+- **ShowPhoto** — shows the last shot with retake / next prompt.
+- **CreateCard** — composites shots into the chosen template with Wand/ImageMagick.
+- **PrintCard** — sends card to CUPS; `error: 02/03` → `RefillPaper`, `error: 06` → `RefillInk`.
+- **Restart** — closes and re-opens the camera, returns to PowerOn.
 
-Buttons are debounced in software (`0.5 s`), a 5-second hold of Button1 triggers `sudo poweroff`.
+Buttons are polled in a background thread (debounce `0.5 s`). Holding Button1 for 5 s triggers `sudo poweroff`.
 
-### Web server
+### Camera backend (`camera_backend.py`)
 
-`server.py` (`flask`, `flask-cors`) runs on port **4010** in a background thread started from `photobooth.py`. It can also be launched standalone (`python3 server.py`) without RPi hardware — a mock `Photobooth` class is used so the UI/API can be developed on macOS/Linux.
+`GPhoto2Backend` wraps `python-gphoto2`:
 
-Authentication: HTTP Basic, enabled only when `webserver_user` and `webserver_password` are both set in `config.ini`.
+- `setup()` — initialises the camera, sets `output=PC` for live view
+- `start_preview(callback)` — streams JPEG frames from `capture_preview()` to the display at ~30 fps
+- `capture(filename)` — triggers shutter, downloads the full-res JPEG, applies flips/color effects
+- `apply_settings()` — live-changes ISO, white balance, flip axes without restart
 
-Flask secret key is auto-generated to `.flask_secret` on first run.
+### Display (`display.py`)
+
+`DisplayManager` writes directly to `/dev/fb0` (no X11, no pygame):
+
+- 30 fps render loop: composites camera preview + ordered PNG overlays onto the framebuffer
+- Supports 16-bit RGB565 and 32-bit RGBA framebuffers
+- `show_message(text)` — renders centered text on black, useful for status screens
+
+### Web server (`server.py`)
+
+Flask + Flask-CORS on port **4010**, started in a background thread by `photobooth.py`. Can also run standalone (`python3 server.py`) on a dev machine — a mock `Photobooth` class serves the UI without hardware.
+
+HTTP Basic auth activates when `webserver_user` + `webserver_password` are set in `config.ini`.
 
 #### JSON API
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/` | `{"photobox": "true"}` identity ping |
-| GET/POST | `/config` | read / patch global config (in-memory) |
-| GET | `/config/save` | persist config to `config.ini` |
+| GET | `/` | identity ping |
+| GET/POST | `/config` | read / patch global config |
+| GET | `/config/save` | persist to `config.ini` |
 | GET | `/layouts` | list both card layouts |
-| POST | `/layout/edit/<id>` | patch a layout (`1` or `2`) |
-| GET | `/layout/save` | persist `Templates/<current>/card.ini` |
-| POST | `/camera/apply` | live-apply camera settings (iso, awb, flips) without restart |
+| POST | `/layout/edit/<id>` | patch layout `1` or `2` |
+| GET | `/layout/save` | persist `card.ini` |
+| POST | `/camera/apply` | live-apply camera settings |
 | GET | `/status` | FSM state + resolution + print flag |
-| GET | `/systemImage/<name>` | fetch a screen overlay by filename |
-| POST | `/upload/systemImage` | replace a screen image (base64 body) |
-| GET | `/photos` | list photos in `Photos/` |
-| GET | `/photo/<name>` | fetch a photo (auth) |
-| GET | `/restart` | re-run `on_enter_PowerOn` |
+| GET | `/systemImage/<name>` | fetch a screen overlay PNG |
+| POST | `/upload/systemImage` | replace a screen PNG (base64 body) |
+| GET | `/photos` | list captured photos |
+| GET | `/photo/<name>` | fetch a photo |
+| GET | `/restart` | re-run PowerOn check |
+| GET | `/button/<n>` | simulate button press (`1` or `2`) — useful for testing without physical buttons |
 
-#### UI (Jinja templates in `web_templates/`)
+#### Web UI
 
 | Path | Page |
 |---|---|
-| `/ui` | Dashboard — FSM state, resolutions, print flag, restart button |
-| `/ui/config` | Global config (paths, resolutions, GPIO pins, web auth) |
-| `/ui/camera` | Camera settings (AWB mode, AWB gains, ISO, hflip/vflip) |
+| `/ui` | Dashboard |
+| `/ui/config` | Global config |
+| `/ui/camera` | Camera settings |
 | `/ui/layouts` | Layout list |
-| `/ui/layouts/editor/<n>` | Per-picture position/rotate/resize/color editor |
-| `/ui/screens` | Browse and replace overlay PNGs |
-| `/ui/photos` | Browse captured photos |
-
-### Config / templates
-
-- **`config.ini`** — global settings (resolution, GPIO, camera, paths, web auth). Sections: `Debug`, `Paths`, `InOut`, `Resolution`, `Screens`, `Camera`, `WebServer`.
-- **`Templates/<name>/card.ini`** — two `[Layout1]` / `[Layout2]` sections, each describing `piccount`, `cardtemplate`, per-picture `resize_image_x/y_N`, `position_image_x/y_N`, `rotate_image_N`, `color_image_N` (`color` / `bw` / `sepia`), and `layout_in_foreground` (whether the PNG template is composited above or below the photos).
-- **`Screens/`** — every overlay the booth shows (logo, countdown 0..5, "take photo N", wait, print, "change ink/paper", etc.). Replaceable from `/ui/screens`.
-- **`Photos/`** — raw captures + rendered cards, filenames prefixed with the session timestamp.
-- `config_parser.py` exposes `ConfigParser`, `TemplateParser`, and `Config` — both read and write are round-trip safe through `configparser`.
+| `/ui/layouts/editor/<n>` | Per-picture editor |
+| `/ui/screens` | Browse/replace overlay PNGs |
+| `/ui/photos` | Browse photos |
 
 ---
 
-## Install (Raspbian)
+## Configuration
 
-> The booth was originally built against **Raspbian Stretch (2019-04-08)** — that image is still the reference for the `picamera` legacy stack. On Bullseye/Bookworm you must either keep the legacy camera stack enabled (`sudo raspi-config` → *Legacy Camera*) or port to `picamera2`.
+**`config.ini`** — global settings:
 
-### System packages
+| Section | Key settings |
+|---|---|
+| `[Paths]` | `photo_path`, `screen_path`, `template_path` |
+| `[InOut]` | `pin_button_left = 23`, `pin_button_right = 24` |
+| `[Resolution]` | `screen_w = 1024`, `screen_h = 600`, `flip_screen_h/v` |
+| `[Camera]` | `camera_awb_mode`, `camera_iso` |
+| `[WebServer]` | `webserver_user`, `webserver_password` |
+| `[Debug]` | `print = True/False` (enables/disables printing) |
 
-```bash
-sudo apt-get update
-sudo apt-get install cups python3-dev python3-pip imagemagick \
-    python3-cups python3-picamera python3-rpi.gpio git \
-    libusb-1.0 libcups2-dev python3-usb python3-pil.imagetk
-```
-
-If `RPi.GPIO` import fails, force a reinstall: `sudo pip3 install RPi.GPIO`.
-
-### Python packages
-
-```bash
-pip3 install -r requirements.txt
-# extras used by photobooth.py itself (not in requirements.txt):
-sudo pip3 install pyudev psutil transitions Wand
-```
-
-### `raspi-config`
-
-- *Boot Options* → *Desktop/CLI* → **Console Autologin**
-- *Interfacing Options* → **Camera**, **SSH**, **I²C** enable
-- *Advanced Options* → **Memory Split** = 256 MB, overscan as needed
-
-### Display (1024 × 600)
-
-Append to `/boot/config.txt`:
-
-```
-hdmi_cvt=1024 600 60 3 0 0 0
-hdmi_group=2
-hdmi_mode=87
-dispmanx_offline=1
-```
-
-References:
-- https://www.raspberrypi.org/forums/viewtopic.php?t=14914
-- https://github.com/raspberrypi/userland/issues/232
-
-### Gutenprint 5.3 (required for SELPHY CP1300)
-
-Add the Debian `sid` source temporarily:
-
-```bash
-sudo nano /etc/apt/sources.list   # add:
-#   deb     [trusted=yes] http://ftp.us.debian.org/debian sid main
-#   deb-src [trusted=yes] http://ftp.us.debian.org/debian sid main
-sudo apt-get update
-sudo apt-get -t sid install printer-driver-gutenprint
-sudo reboot
-# then comment those lines out again
-```
-
-Reference: https://www.raspberrypi.org/forums/viewtopic.php?t=219763
-
-### CUPS + printer
-
-```bash
-sudo nano /etc/cups/cupsd.conf
-# - change `Listen localhost:631` → `Port 631`
-# - add `Allow @LOCAL` inside Location /, /admin, /admin/conf
-sudo usermod -aG lpadmin pi
-sudo service cups restart
-```
-
-Browse to `http://<pi-ip>:631/admin`, log in as `pi`, **Add Printer** → *Canon SELPHY CP1300* → *Set Default Options* → *Printer Features Common* → **Borderless = Yes**.
-
-### Autostart + quiet boot
-
-```bash
-sudo nano /etc/rc.local   # before `exit 0`:
-#   sudo python3 /home/pi/Photobooth/photobooth.py &
-
-sudo nano /boot/cmdline.txt   # change `tty1` → `console=tty3`, append:
-#   quiet splash loglevel=0 logo.nologo vt.global_cursor_default=0
-```
-
-### Optional — DS3231 RTC
-
-```bash
-sudo nano /etc/modules           # add: i2c-bcm2708
-sudo apt-get install i2c-tools
-sudo i2cdetect -y 1              # expect 0x68
-echo 'dtoverlay=i2c-rtc,ds3231' | sudo tee -a /boot/config.txt
-sudo apt-get -y remove fake-hwclock
-sudo update-rc.d -f fake-hwclock remove
-sudo systemctl disable fake-hwclock
-# then comment out the `if [ -e /run/systemd/system ]; exit 0; fi` block in
-# /lib/udev/hwclock-set, and:
-sudo hwclock -w
-```
-
-Guide (PDF): https://cdn-learn.adafruit.com/downloads/pdf/adding-a-real-time-clock-to-raspberry-pi.pdf
-
-### Optional — Samba share + USB automount
-
-Config snippets are in the git history of this file — add a `[PhotoBooth]` share pointing at `/home/pi`, install `usbmount`, and change `MountFlags=slave` → `shared` in `/lib/systemd/system/systemd-udevd.service` so the auto-mount is visible to the booth process.
+**`Templates/<name>/card.ini`** — two `[Layout1]` / `[Layout2]` sections with `piccount`, `cardtemplate`, and per-picture `resize_image_x/y_N`, `position_image_x/y_N`, `rotate_image_N`, `color_image_N` (`color` / `bw` / `sepia`).
 
 ---
 
 ## Running
 
-### On the Pi
-
 ```bash
-./run                   # same as: python3 photobooth.py
-```
+# On the Pi (managed by Systemd automatically)
+sudo systemctl status photobooth
+sudo journalctl -u photobooth -f      # live logs
 
-This starts the state machine **and** the web server (background thread on `0.0.0.0:4010`).
+# Manual start
+python3 photobooth.py
 
-### Just the web UI (dev machine, no hardware)
-
-```bash
+# Web UI only (dev machine, no hardware)
 python3 server.py
-# http://localhost:4010/ui
+# → http://localhost:4010/ui
 ```
-
-A stub `Photobooth` class is used; layout + config editing still work against the live files.
 
 ---
 
 ## Repository layout
 
 ```
-photobooth.py          # FSM + GPIO + camera + print loop (main)
-server.py              # Flask app (JSON API + /ui, runs on :4010)
+photobooth.py          # FSM + GPIO + camera + print loop
+camera_backend.py      # GPhoto2Backend (Canon R50 via gphoto2)
+display.py             # DisplayManager (framebuffer, no X11)
+server.py              # Flask app (JSON API + /ui)
 config_parser.py       # ConfigParser, TemplateParser, Config dataclass
-photoCard_new.py       # PhotoCard / PictureOnCard (used by config_parser)
-photoCard.py           # legacy variant (still imported by photobooth.py)
+photoCard_new.py       # PhotoCard / PictureOnCard
 config.ini             # global config
+install.sh             # full setup script for fresh Raspbian Bookworm
 requirements.txt       # Flask stack + Wand
-run                    # tiny bash shim
-web_templates/         # Jinja2 templates for /ui/*
-Screens/               # overlay PNGs (countdown, logo, prompts, ...)
-Templates/<event>/     # per-event card templates + card.ini
+Screens/               # overlay PNGs (countdown, logo, prompts, …)
+Templates/<event>/     # per-event card template + card.ini
 Photos/                # captured shots + rendered cards
-Log/                   # timestamped debug logs (created on first run)
-Media/                 # demo images for the layout preview screen
+Log/                   # timestamped debug logs
+Media/                 # demo images for layout preview
 ```
 
 ---
 
-## Credits for stock assets
+## Optional — DS3231 RTC
 
-- Cooltext logos: https://de.cooltext.com/Logo-Design-Outline?Font=11391
+```bash
+echo 'i2c-bcm2708' | sudo tee -a /etc/modules
+sudo apt-get install i2c-tools
+sudo i2cdetect -y 1                           # expect 0x68
+echo 'dtoverlay=i2c-rtc,ds3231' | sudo tee -a /boot/firmware/config.txt
+sudo reboot
+sudo apt-get -y remove fake-hwclock
+sudo update-rc.d -f fake-hwclock remove
+sudo systemctl disable fake-hwclock
+# comment out the `if [ -e /run/systemd/system ]` block in /lib/udev/hwclock-set
+sudo hwclock -w
+```

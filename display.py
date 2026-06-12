@@ -45,6 +45,34 @@ class DisplayManager:
         with self._lock:
             self._preview_frame = img
 
+    def show_message(self, text, color=(255, 255, 255)):
+        """Render centered text on black and register as overlay. Returns overlay_id."""
+        from PIL import ImageDraw, ImageFont
+        img = Image.new('RGBA', (self.screen_w, self.screen_h), (0, 0, 0, 255))
+        draw = ImageDraw.Draw(img)
+        font_paths = [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+        ]
+        font = ImageFont.load_default()
+        for fp in font_paths:
+            if os.path.exists(fp):
+                try:
+                    font = ImageFont.truetype(fp, 42)
+                except Exception:
+                    pass
+                break
+        bbox = draw.multiline_textbbox((0, 0), text, font=font, align='center')
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        x = (self.screen_w - tw) // 2
+        y = (self.screen_h - th) // 2
+        draw.multiline_text((x, y), text, font=font, fill=color, align='center')
+        with self._lock:
+            oid = self._next_id
+            self._next_id += 1
+            self._overlays[oid] = (10, img)
+        return oid
+
     def add_overlay(self, image_path, layer=3):
         """Load a PNG and register as overlay. Returns overlay_id or -1."""
         if not os.path.exists(image_path) or os.path.getsize(image_path) == 0:

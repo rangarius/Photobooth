@@ -93,7 +93,20 @@ class Photobooth:
     def setupCamera(self):
         logging.debug("Setup Camera")
         self.camera = GPhoto2Backend()
-        self.camera.setup(self.config)
+        msg_id = -1
+        while True:
+            try:
+                self.camera.setup(self.config)
+                self.display.remove_overlay(msg_id)
+                logging.info("Camera ready")
+                return
+            except Exception as e:
+                logging.warning(f"Camera not available ({e}) — retrying in 5s")
+                if msg_id == -1:
+                    msg_id = self.display.show_message(
+                        "Bitte Kamera\nanschließen und\neinschalten"
+                    )
+                time.sleep(5)
 
 
 
