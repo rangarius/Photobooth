@@ -28,6 +28,8 @@ class DisplayManager:
         self._lock = threading.Lock()
         self._running = True
 
+        # hide terminal cursor and clear console over framebuffer
+        self._hide_cursor()
         # blank screen on start
         self._write_black()
 
@@ -133,6 +135,16 @@ class DisplayManager:
             pass
 
     # ── sysfs helpers ─────────────────────────────────────────────────────────
+
+    def _hide_cursor(self):
+        for tty in ('/dev/tty1', '/dev/tty'):
+            try:
+                with open(tty, 'wb') as t:
+                    t.write(b'\033[?25l')  # hide cursor
+                    t.write(b'\033[2J')    # clear screen
+                return
+            except Exception:
+                continue
 
     def _read_bits_per_pixel(self):
         try:
