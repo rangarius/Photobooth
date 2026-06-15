@@ -7,33 +7,101 @@
 <div class="alert alert-info">{{ msg }}</div>
 {% endif %}
 
-<p style="font-size:0.88em;color:#666;margin-bottom:18px">
-  Captured photos and assembled cards from the <code>Photos/</code> directory.
-  {{ photos|length }} file{{ 's' if photos|length != 1 else '' }} found.
-  Click any image to download.
-</p>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
+  <p style="font-size:0.88em;color:#666;margin:0">
+    Captured photos and assembled cards from the <code>Photos/</code> directory.
+    <span id="photo-count">{{ photos|length }}</span> file{{ 's' if photos|length != 1 else '' }} found.
+    Click any image to download.
+  </p>
+  {% if photos %}
+  <button class="btn btn-secondary" style="margin-left:auto;font-size:0.82em;padding:5px 12px;color:#dc2626;border-color:#dc2626"
+          onclick="deleteAll(this)">🗑 Delete All</button>
+  {% endif %}
+</div>
 
 {% if photos %}
-<div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));">
+<div class="grid" id="photo-grid" style="grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));">
   {% for photo in photos %}
-  <div class="grid-item">
+  <div class="grid-item" id="item-{{ loop.index }}" data-name="{{ photo }}">
     <a href="/photo/{{ photo }}" download="{{ photo }}">
       <img src="/photo/{{ photo }}" alt="{{ photo }}" loading="lazy"
            style="height:120px; object-fit:cover; cursor:pointer;"
            onerror="this.style.background='#e5e7eb'">
     </a>
-    <div class="name">
-      <a href="/photo/{{ photo }}" download="{{ photo }}" style="color:#2563eb;text-decoration:none;">
+    <div class="name" style="display:flex;align-items:center;gap:4px;padding:4px 6px">
+      <a href="/photo/{{ photo }}" download="{{ photo }}" style="color:#2563eb;text-decoration:none;flex:1;font-size:0.78em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
         {{ photo }}
       </a>
+      <button class="btn-del" title="Delete" onclick="deletePhoto('{{ photo }}', this)"
+              style="flex-shrink:0;background:none;border:none;cursor:pointer;color:#9ca3af;font-size:1em;padding:2px 4px;line-height:1"
+              onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color='#9ca3af'">✕</button>
     </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
-<div class="card" style="text-align:center;padding:40px;color:#9ca3af">
+<div class="card" style="text-align:center;padding:40px;color:#9ca3af" id="empty-state">
   <div style="font-size:2.5em;margin-bottom:10px">📷</div>
   No photos yet. Run a session on the photobooth to capture images.
 </div>
 {% endif %}
+
+<div id="toast" style="display:none;position:fixed;bottom:24px;right:24px;background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:0.88em;z-index:999"></div>
+
+<script>
+function showToast(msg, ok) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = ok ? '#059669' : '#dc2626';
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+async function deletePhoto(name, btn) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  btn.disabled = true;
+  const r = await fetch(`/photo/${encodeURIComponent(name)}/delete`, { method: 'POST' });
+  if (r.ok) {
+    const item = document.querySelector(`[data-name="${CSS.escape(name)}"]`);
+    if (item) item.remove();
+    updateCount(-1);
+    showToast('Deleted', true);
+  } else {
+    btn.disabled = false;
+    showToast('Error deleting file', false);
+  }
+}
+
+async function deleteAll(btn) {
+  const items = document.querySelectorAll('#photo-grid .grid-item');
+  if (!items.length) return;
+  if (!confirm(`Delete all ${items.length} photos? This cannot be undone.`)) return;
+  btn.disabled = true;
+  let deleted = 0;
+  for (const item of items) {
+    const name = item.dataset.name;
+    const r = await fetch(`/photo/${encodeURIComponent(name)}/delete`, { method: 'POST' });
+    if (r.ok) { item.remove(); deleted++; updateCount(-1); }
+  }
+  btn.disabled = false;
+  showToast(`Deleted ${deleted} file${deleted !== 1 ? 's' : ''}`, true);
+  if (!document.querySelectorAll('#photo-grid .grid-item').length) {
+    document.getElementById('photo-grid').remove();
+    btn.remove();
+    const es = document.getElementById('empty-state');
+    if (!es) {
+      const d = document.createElement('div');
+      d.className = 'card';
+      d.style = 'text-align:center;padding:40px;color:#9ca3af';
+      d.innerHTML = '<div style="font-size:2.5em;margin-bottom:10px">📷</div>No photos yet.';
+      document.querySelector('.content').appendChild(d);
+    }
+  }
+}
+
+function updateCount(delta) {
+  const el = document.getElementById('photo-count');
+  if (el) el.textContent = Math.max(0, parseInt(el.textContent) + delta);
+}
+</script>
 {% endblock %}

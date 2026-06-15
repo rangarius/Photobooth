@@ -131,9 +131,13 @@ class PhotoCard:
             self.loadImageTemplate()
 
         # composite all photos to card
+        # Wand rotate() grows the canvas symmetrically, so we subtract half the
+        # extra size to keep the image center aligned with the editor frame center.
         for i in range(0, self.picCount):
-            self.cardImage.composite(self.pictures[i].img, self.pictures[i].posX,
-                                       self.pictures[i].posY)
+            pic = self.pictures[i]
+            x_off = (pic.img.width  - pic.resizeX) // 2
+            y_off = (pic.img.height - pic.resizeY) // 2
+            self.cardImage.composite(pic.img, pic.posX - x_off, pic.posY - y_off)
 
         # if Layout is in foreground, overlay it last
         if self.layoutInForeground:

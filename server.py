@@ -1,6 +1,7 @@
 import os
 import json
 import base64
+import threading
 from functools import wraps
 
 from json import JSONEncoder
@@ -253,6 +254,19 @@ def api_get_photo(name):
     return send_from_directory(app.configParser.config.photo_abs_file_path, name)
 
 
+@app.route("/photo/<name>/delete", methods=["POST"])
+@requires_auth
+def api_delete_photo(name):
+    photo_dir = app.configParser.config.photo_abs_file_path
+    filepath = os.path.realpath(os.path.join(photo_dir, os.path.basename(name)))
+    if not filepath.startswith(os.path.realpath(photo_dir)):
+        return jsonify({"msg": "invalid path"}), 400
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        return jsonify({"msg": "deleted"})
+    return jsonify({"msg": "not found"}), 404
+
+
 @app.route("/photos", methods=["GET"])
 @requires_auth
 def api_list_photos():
@@ -270,15 +284,18 @@ def api_list_photos():
 # JSON API — photobooth control
 # ---------------------------------------------------------------------------
 
+def _do_restart():
+    try:
+        app.photobooth.to_PowerOn()
+    except Exception as e:
+        logging.warning(f"Restart error: {e}")
+
 @app.route('/restart', methods=['GET'])
 @requires_auth
 def api_restart_photobooth():
     if app.photobooth:
-        try:
-            app.photobooth.on_enter_PowerOn()
-        except Exception:
-            pass
-    return jsonify({"msg": "restarting"})
+        threading.Thread(target=_do_restart, daemon=True).start()
+    return jsonify({"msg": "Restarting…"})
 
 
 # ---------------------------------------------------------------------------

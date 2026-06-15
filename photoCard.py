@@ -237,8 +237,10 @@ class PhotoCard:
 
         # composite all photos to card
         for i in range(0, self.piccount):
-            self.__cardImage.composite(self.picture[i].img, self.picture[i].posX,
-                                       self.picture[i].posY)
+            pic = self.picture[i]
+            x_off = (pic.img.width  - pic.resizeX) // 2
+            y_off = (pic.img.height - pic.resizeY) // 2
+            self.__cardImage.composite(pic.img, pic.posX - x_off, pic.posY - y_off)
 
         # if Layout is in foreground, overlay it last
         if self.layoutInForeground:
