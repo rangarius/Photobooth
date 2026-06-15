@@ -2,7 +2,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CURRENT_USER="$(whoami)"
+# Detect the real user even when the script is run via sudo
+CURRENT_USER="${SUDO_USER:-$(whoami)}"
 
 echo "================================================"
 echo " Photobooth Setup — Canon R50 / Raspberry Pi"
@@ -101,8 +102,8 @@ sudo systemctl restart cups
 # Nutzer-Gruppen — NACH CUPS (lpadmin-Gruppe wird von cups-Paket angelegt)
 echo "[5/8] Nutzer-Gruppen einrichten..."
 sudo groupadd -f lpadmin   # -f = kein Fehler wenn Gruppe schon existiert
-sudo usermod -aG lp,lpadmin,video,input,plugdev "$CURRENT_USER"
-echo "  $CURRENT_USER → lp, lpadmin, video, input, plugdev"
+sudo usermod -aG lp,lpadmin,video,input,plugdev,gpio "$CURRENT_USER"
+echo "  $CURRENT_USER → lp, lpadmin, video, input, plugdev, gpio"
 echo ""
 
 # ── 6. ImageMagick Policy (Wand braucht höhere Limits) ────────────────────────
@@ -174,6 +175,9 @@ echo ""
 echo "[8/8] Autostart + Quiet Boot einrichten..."
 
 # Systemd-Service (zuverlässiger als rc.local auf modernem Raspbian)
+# Ensure project directory is owned by the real user (not root)
+sudo chown -R "$CURRENT_USER":"$CURRENT_USER" "$SCRIPT_DIR"
+
 sudo tee /etc/systemd/system/photobooth.service > /dev/null <<SVCEOF
 [Unit]
 Description=Photobooth
@@ -182,6 +186,7 @@ After=multi-user.target
 [Service]
 Type=simple
 User=$CURRENT_USER
+Group=$CURRENT_USER
 WorkingDirectory=$SCRIPT_DIR
 ExecStart=/usr/bin/python3 $SCRIPT_DIR/photobooth.py
 Restart=on-failure
@@ -195,7 +200,7 @@ SVCEOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable photobooth.service
-echo "  Systemd-Service photobooth.service aktiviert"
+echo "  Systemd-Service photobooth.service aktiviert (User=$CURRENT_USER)"
 
 # Quiet Boot
 if ! grep -q 'quiet splash' "$BOOT_CMDLINE"; then

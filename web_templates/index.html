@@ -32,6 +32,10 @@
     <div class="label">AWB Mode</div>
     <div class="value">{{ cfg.camera_awb_mode }}</div>
   </div>
+  <div class="stat-card">
+    <div class="label">Active Project</div>
+    <div class="value">{{ active_project }}{% if active_project_locked %} 🔒{% endif %}</div>
+  </div>
 </div>
 
 <h2>Quick Navigation</h2>

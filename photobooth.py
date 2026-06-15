@@ -161,8 +161,24 @@ class Photobooth:
         self.layout = self.layoutParser.layout
         logging.debug("Reading Config finished, starting webserver")
 
-    # read the global configuration, folders, resolution....
-    #self.config = 
+    def switch_project(self, name):
+        """Switch the active project: reload paths, layouts, and apply camera settings."""
+        self.configParser.set_active_project(name)
+        self.config = self.configParser.config
+        self.layoutParser.set_path(self.config.templates_file_path)
+        self.layout = self.layoutParser.layout
+        os.makedirs(self.config.photo_abs_file_path, exist_ok=True)
+        try:
+            self.camera.apply_settings(
+                iso=self.config.camera_iso,
+                awb_mode=self.config.camera_awb_mode,
+                exposure_mode=self.config.camera_exposure_mode,
+                shutterspeed=self.config.camera_shutterspeed,
+                aperture=self.config.camera_aperture,
+            )
+        except Exception as e:
+            logging.warning(f"switch_project apply_settings: {e}")
+        threading.Thread(target=self.to_PowerOn, daemon=True).start()
 
     def setCameraColor(self, color):
         self.camera.set_color_effect(color)
@@ -311,14 +327,16 @@ class Photobooth:
         self.layout[0].processCard()
         self.layout[1].processCard()
 
-        self.layout[0].cardImage.resize(int(1868 / 8), int(1261 / 8))
-        self.layout[1].cardImage.resize(int(1868 / 8), int(1261 / 8))
+        thumb0 = self.layout[0].cardImage.clone()
+        thumb1 = self.layout[1].cardImage.clone()
+        thumb0.resize(int(1868 / 8), int(1261 / 8))
+        thumb1.resize(int(1868 / 8), int(1261 / 8))
 
         screen = image(width=self.config.screen_w, height=self.config.screen_h)
 
         # create screen
-        screen.composite(self.layout[0].cardImage, 131, self.config.screen_h - 184)
-        screen.composite(self.layout[1].cardImage, self.config.screen_w - int(1868 / 8) - 131, self.config.screen_h - 184)
+        screen.composite(thumb0, 131, self.config.screen_h - 184)
+        screen.composite(thumb1, self.config.screen_w - int(1868 / 8) - 131, self.config.screen_h - 184)
 
         # save screen to file for displaying
         screen.save(filename=self.config.screen_choose_layout)
@@ -566,18 +584,23 @@ class Photobooth:
                     logging.debug("Printer error: unbekannt")
     
             # Send the picture to the printer
-            conn.printFile(printername[0], self.cardfilename, "Photo Booth", {})
-    
+            try:
+                conn.printFile(printername[0], self.cardfilename, "Photo Booth", {})
+            except Exception as e:
+                logging.error(f"printFile failed: {e}")
+                self.PrintDone()
+                return
+
             # short wait
             time.sleep(5)
-    
+
             stop = 0
             TIMEOUT = 60
-    
+
             # Wait until the job finishes
             while stop < TIMEOUT:
                 printerstate = conn.getPrinterAttributes(printername[0], requested_attributes=["printer-state-message"])
-    
+
                 if str(printerstate).find("error:") > 0:
                     logging.debug(str(printerstate))
                     if str(printerstate).find("06") > 0:
@@ -594,13 +617,13 @@ class Photobooth:
                         return
                     else:
                         logging.debug("Printer error: unbekannt")
-    
+
                 if printerstate.get("printer-state-message") == "":
                     logging.debug("printer-state-message = /")
                     break
                 stop += 1
                 time.sleep(1)
-    
+
         else:
             logging.debug("Print disabled")
 
@@ -649,9 +672,8 @@ class Photobooth:
     def get_base_filename_for_images(self):
         logging.debug("Get BaseName for ImageFiles")
         # returns the filename base
-        base_filename = self.config.photo_abs_file_path + str(datetime.now()).split('.')[0]
-        base_filename = base_filename.replace(' ', '_')
-        base_filename = base_filename.replace(':', '-')
+        timestamp = str(datetime.now()).split('.')[0].replace(' ', '_').replace(':', '-')
+        base_filename = os.path.join(self.config.photo_abs_file_path, timestamp)
 
         logging.debug(base_filename)
         return base_filename

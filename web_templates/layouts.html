@@ -1,7 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Layouts{% endblock %}
+{% block title %}Layouts — {{ active_project }}{% endblock %}
 {% block content %}
-<h1>Layout Editor</h1>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+  <h1 style="margin:0">Layout Editor</h1>
+  <span style="background:#e0e7ff;color:#3730a3;padding:3px 10px;border-radius:12px;font-size:0.82em;font-weight:600">
+    🗂 {{ active_project }}{% if active_project_locked %} 🔒{% endif %}
+  </span>
+  <a href="/ui/projects" style="font-size:0.78em;color:#6b7280;text-decoration:none;margin-left:auto">← Projects</a>
+</div>
 
 {% if msg == "saved" %}
 <div class="alert alert-success">✓ Layout saved and photobooth reload triggered</div>

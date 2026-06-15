@@ -1,7 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Photos{% endblock %}
+{% block title %}Photos — {{ active_project }}{% endblock %}
 {% block content %}
-<h1>Photos</h1>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+  <h1 style="margin:0">Photos</h1>
+  <span style="background:#e0e7ff;color:#3730a3;padding:3px 10px;border-radius:12px;font-size:0.82em;font-weight:600">
+    🗂 {{ active_project }}{% if active_project_locked %} 🔒{% endif %}
+  </span>
+  <a href="/ui/projects" style="font-size:0.78em;color:#6b7280;text-decoration:none;margin-left:auto">← Projects</a>
+</div>
 
 {% if msg %}
 <div class="alert alert-info">{{ msg }}</div>
@@ -9,7 +15,7 @@
 
 <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap">
   <p style="font-size:0.88em;color:#666;margin:0">
-    Captured photos and assembled cards from the <code>Photos/</code> directory.
+    Captured photos and assembled cards from <code>Projects/{{ active_project }}/Photos/</code>.
     <span id="photo-count">{{ photos|length }}</span> file{{ 's' if photos|length != 1 else '' }} found.
     Click any image to download.
   </p>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Projects{% endblock %}
+{% block content %}
+<h1>Projects</h1>
+
+{% if msg == "activated" %}
+<div class="alert alert-success">✓ Project activated</div>
+{% elif msg == "created" %}
+<div class="alert alert-success">✓ Project created</div>
+{% elif msg == "deleted" %}
+<div class="alert alert-success">✓ Project deleted</div>
+{% elif msg == "password_set" %}
+<div class="alert alert-success">✓ Password updated</div>
+{% elif msg == "delete_active" %}
+<div class="alert alert-error">Cannot delete the active project</div>
+{% elif msg == "exists" %}
+<div class="alert alert-error">A project with that name already exists</div>
+{% elif msg == "invalid_name" %}
+<div class="alert alert-error">Invalid project name</div>
+{% elif msg == "not_found" %}
+<div class="alert alert-error">Project not found</div>
+{% endif %}
+
+<p style="font-size:0.88em;color:#666;margin-bottom:18px">
+  Each project bundles its own layouts, photos and camera settings.
+  The active project is used during shooting sessions.
+</p>
+
+<div class="card" style="padding:0;overflow:hidden">
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Status</th>
+      <th>Photos</th>
+      <th>Security</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in projects %}
+    <tr>
+      <td>
+        <strong>{{ p.name }}</strong>
+        {% if p.has_password %}<span class="badge badge-yellow" style="margin-left:6px">🔒</span>{% endif %}
+      </td>
+      <td>
+        {% if p.active %}
+          <span class="badge badge-green">Active</span>
+        {% else %}
+          <span class="badge badge-gray">Inactive</span>
+        {% endif %}
+      </td>
+      <td>{{ p.photo_count }}</td>
+      <td>
+        <form method="POST" action="/ui/projects/{{ p.name }}/password"
+              style="display:flex;gap:6px;align-items:center;min-width:210px">
+          <input type="password" name="password"
+                 placeholder="{{ 'Change / remove password' if p.has_password else 'Set password…' }}"
+                 style="flex:1;padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:0.82em">
+          <button type="submit" class="btn btn-secondary"
+                  style="padding:4px 10px;font-size:0.78em">
+            {{ '🔒 Update' if p.has_password else '🔓 Set' }}
+          </button>
+        </form>
+      </td>
+      <td style="white-space:nowrap">
+        {% if not p.active %}
+        <form method="POST" action="/ui/projects/select" style="display:inline">
+          <input type="hidden" name="name" value="{{ p.name }}">
+          <button type="submit" class="btn btn-primary" style="padding:5px 12px;font-size:0.82em">
+            {% if p.has_password and not p.unlocked %}🔒 {% endif %}Activate
+          </button>
+        </form>
+        <form method="POST" action="/ui/projects/{{ p.name }}/delete" style="display:inline;margin-left:4px"
+              onsubmit="return confirm('Delete project {{ p.name }} and all its photos?')">
+          <button type="submit" class="btn btn-danger" style="padding:5px 10px;font-size:0.82em">🗑</button>
+        </form>
+        {% else %}
+        <a href="/ui/layouts" class="btn btn-secondary"
+           style="padding:5px 10px;font-size:0.82em;text-decoration:none;display:inline-block">Layouts</a>
+        <a href="/ui/photos" class="btn btn-secondary"
+           style="padding:5px 10px;font-size:0.82em;text-decoration:none;display:inline-block;margin-left:4px">Photos</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 style="margin-top:26px">Create New Project</h2>
+<div class="card">
+  <form method="POST" action="/ui/projects/create" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px">
+      <label style="font-size:0.82em;color:#555;display:block;margin-bottom:4px">Project name</label>
+      <input type="text" name="name" placeholder="e.g. Sommerfest2025" required
+             style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:0.9em">
+    </div>
+    <button type="submit" class="btn btn-success">+ Create</button>
+  </form>
+  <p style="font-size:0.78em;color:#9ca3af;margin-top:8px">
+    Spaces and special characters are removed from the name. A new folder will be created under <code>Projects/</code>.
+  </p>
+</div>
+{% endblock %}

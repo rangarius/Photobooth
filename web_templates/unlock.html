@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Unlock Project{% endblock %}
+{% block content %}
+<h1>Unlock Project</h1>
+
+<div class="card" style="max-width:420px">
+  <p style="font-size:0.88em;color:#555;margin-bottom:18px">
+    The project <strong>{{ name }}</strong> is password-protected.
+    Enter the password to continue.
+  </p>
+
+  {% if error %}
+  <div class="alert alert-error" style="margin-bottom:14px">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="/ui/projects/unlock">
+    <input type="hidden" name="name" value="{{ name }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="form-row">
+      <label>Password</label>
+      <input type="password" name="password" autofocus required
+             placeholder="Enter project password">
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="btn btn-primary">🔓 Unlock</button>
+      <a href="/ui/projects" class="btn btn-secondary" style="text-decoration:none">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

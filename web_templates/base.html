@@ -109,11 +109,16 @@ input[type=file].hidden-file { display: none; }
 <div class="sidebar">
   <div class="brand">
     📷 Photobooth
-    <small>Configuration UI</small>
+    <small style="display:flex;align-items:center;gap:4px">
+      {{ active_project }}{% if active_project_locked %} 🔒{% endif %}
+    </small>
   </div>
   <nav>
     <a href="/ui" class="{% if request.path == '/ui' or request.path == '/ui/' %}active{% endif %}">
       <span class="icon">⊞</span> Dashboard
+    </a>
+    <a href="/ui/projects" class="{% if '/ui/projects' in request.path %}active{% endif %}">
+      <span class="icon">🗂</span> Projects
     </a>
     <a href="/ui/config" class="{% if '/ui/config' in request.path %}active{% endif %}">
       <span class="icon">⚙</span> Global Config

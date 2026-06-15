@@ -2,11 +2,14 @@ from __future__ import annotations
 import base64
 import configparser
 import os
-import logging  # logging functions
+import shutil
+import logging
+from werkzeug.security import generate_password_hash, check_password_hash
 from photoCard_new import PhotoCard, PictureOnCard
 
 logger = logging.getLogger(__name__)
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
+PROJECTS_PATH = os.path.join(REAL_PATH, "Projects")
 
 
 class TemplateParser:
@@ -16,6 +19,14 @@ class TemplateParser:
         self.ini_path = os.path.join(path, "card.ini")
         self.layout = [PhotoCard(), PhotoCard()]
         self.cardconfig = configparser.ConfigParser()
+
+    def set_path(self, new_path):
+        """Switch to a different project directory and reload layouts."""
+        self.template_path = new_path
+        self.ini_path = os.path.join(new_path, "card.ini")
+        self.layout = [PhotoCard(), PhotoCard()]
+        self.cardconfig = configparser.ConfigParser()
+        self.readCardConfiguration()
 
     def parseData(self, data):
         if data.get("id") is not None:
@@ -35,8 +46,6 @@ class TemplateParser:
                 card.picCount = int(data["picCount"])
             if data.get("layoutInForeground") is not None:
                 card.layoutInForeground = data["layoutInForeground"] in (True, "True", "true", "on", "1")
-                logger.debug("Layout is now: ")
-                logger.debug(card.layoutInForeground)
 
             if data.get("pictures") is not None:
                 pictures = data["pictures"]
@@ -78,16 +87,15 @@ class TemplateParser:
                 self.cardconfig.set(layout_str, "rotate_image_"+str(pic_id), str(picture.rotate))
                 self.cardconfig.set(layout_str, "color_image_"+str(pic_id), str(picture.color))
 
+        os.makedirs(self.template_path, exist_ok=True)
         with open(self.ini_path, 'w') as configfile:
             self.cardconfig.write(configfile, True)
 
     def readCardConfiguration(self):
         logger.debug("Read card Config File")
-
         self.cardconfig.sections()
 
         if self.ini_path is not None:
-            logger.debug("start reading")
             self.cardconfig.read(self.ini_path)
 
             for l in range(0, 2):
@@ -117,10 +125,15 @@ class TemplateParser:
         return self.layout
 
 
+# ---------------------------------------------------------------------------
+# Config dataclass
+# ---------------------------------------------------------------------------
+
 class Config:
-    sections = ["Debug", "Paths", "InOut", "Resolution", "Camera", "WebServer"]
+    sections = ["Debug", "Paths", "InOut", "Resolution", "Project", "WebServer"]
     debug = True
     printPicsEnable = True
+    active_project = "Default"
     photo_abs_file_path = ""
     screens_abs_file_path = ""
     templates_file_path = ""
@@ -165,6 +178,7 @@ class Config:
         return {
             "debug": self.debug,
             "printPicsEnable": self.printPicsEnable,
+            "active_project": self.active_project,
             "photo_abs_file_path": self.photo_abs_file_path,
             "screens_abs_file_path": self.screens_abs_file_path,
             "templates_file_path": self.templates_file_path,
@@ -177,13 +191,18 @@ class Config:
             "flip_screen_h": self.flip_screen_h,
             "flip_screen_v": self.flip_screen_v,
             "camera_awb_mode": self.camera_awb_mode,
-            "camera_awb_gains_red": self.camera_awb_gains_red,
-            "camera_awb_gains_blue": self.camera_awb_gains_blue,
             "camera_iso": self.camera_iso,
+            "camera_exposure_mode": self.camera_exposure_mode,
+            "camera_shutterspeed": self.camera_shutterspeed,
+            "camera_aperture": self.camera_aperture,
             "webserver_user": self.webserver_user,
-            "base_path": self.base_path
+            "base_path": self.base_path,
         }
 
+
+# ---------------------------------------------------------------------------
+# ConfigParser
+# ---------------------------------------------------------------------------
 
 class ConfigParser:
     logging = None
@@ -194,7 +213,149 @@ class ConfigParser:
         self.configParser = configparser.ConfigParser()
         self.configParser.read(self.path)
         self.config = Config()
+        self.ensure_default_project()
         self.readConfiguration()
+
+    # ── Project filesystem helpers ─────────────────────────────────────────
+
+    def project_dir(self, name=None):
+        return os.path.join(PROJECTS_PATH, name or self.config.active_project)
+
+    def _project_ini_path(self, name=None):
+        return os.path.join(self.project_dir(name), "project.ini")
+
+    def list_projects(self):
+        if not os.path.isdir(PROJECTS_PATH):
+            return []
+        return sorted([
+            n for n in os.listdir(PROJECTS_PATH)
+            if os.path.isdir(os.path.join(PROJECTS_PATH, n))
+        ])
+
+    def ensure_default_project(self):
+        """Bootstrap: create Projects/Default/ from Templates/Default/ on first run."""
+        os.makedirs(PROJECTS_PATH, exist_ok=True)
+        default_dir = os.path.join(PROJECTS_PATH, "Default")
+        if not os.path.isdir(default_dir):
+            os.makedirs(default_dir)
+            os.makedirs(os.path.join(default_dir, "Photos"), exist_ok=True)
+
+            # Migrate from Templates/Default/ if present
+            old_src = os.path.join(REAL_PATH, "Templates", "Default")
+            if os.path.isdir(old_src):
+                for fname in os.listdir(old_src):
+                    src = os.path.join(old_src, fname)
+                    if os.path.isfile(src) and fname.lower().endswith(('.ini', '.png', '.jpg')):
+                        shutil.copy2(src, os.path.join(default_dir, fname))
+
+            # Migrate old [Camera] values from config.ini into project.ini
+            old_cam = configparser.ConfigParser()
+            old_cam.read(self.path)
+            self._write_project_ini_camera(default_dir, {
+                'camera_exposure_mode': old_cam.get('Camera', 'camera_exposure_mode', fallback='P'),
+                'camera_awb_mode': old_cam.get('Camera', 'camera_awb_mode', fallback='Auto'),
+                'camera_iso': old_cam.get('Camera', 'camera_iso', fallback='Auto'),
+                'camera_shutterspeed': old_cam.get('Camera', 'camera_shutterspeed', fallback='auto'),
+                'camera_aperture': old_cam.get('Camera', 'camera_aperture', fallback='auto'),
+            })
+
+        # Ensure Photos/ subdir for every existing project
+        for name in self.list_projects():
+            os.makedirs(os.path.join(PROJECTS_PATH, name, "Photos"), exist_ok=True)
+
+    def create_project(self, name):
+        proj_dir = os.path.join(PROJECTS_PATH, name)
+        os.makedirs(proj_dir, exist_ok=True)
+        os.makedirs(os.path.join(proj_dir, "Photos"), exist_ok=True)
+
+        # Write empty card.ini (2 layouts, 0 pictures)
+        tp = TemplateParser(proj_dir)
+        tp.writeCardConfig()
+
+        # Write project.ini with current camera defaults
+        self._write_project_ini_camera(proj_dir, {
+            'camera_exposure_mode': self.config.camera_exposure_mode,
+            'camera_awb_mode': self.config.camera_awb_mode,
+            'camera_iso': self.config.camera_iso,
+            'camera_shutterspeed': self.config.camera_shutterspeed,
+            'camera_aperture': self.config.camera_aperture,
+        })
+
+    def delete_project(self, name):
+        if name == self.config.active_project:
+            raise ValueError("Cannot delete the active project")
+        proj_dir = os.path.join(PROJECTS_PATH, name)
+        if os.path.isdir(proj_dir):
+            shutil.rmtree(proj_dir)
+
+    def set_active_project(self, name):
+        self.config.active_project = name
+        self.writeConfig()
+        self.readConfiguration()
+
+    # ── Project camera (project.ini [Camera]) ─────────────────────────────
+
+    def _write_project_ini_camera(self, proj_dir, camera_dict):
+        """Write [Camera] to project.ini, preserving other sections (e.g. [Security])."""
+        path = os.path.join(proj_dir, "project.ini")
+        cfg = configparser.ConfigParser()
+        cfg.read(path)
+        if not cfg.has_section("Camera"):
+            cfg.add_section("Camera")
+        for k, v in camera_dict.items():
+            cfg.set("Camera", k, str(v))
+        with open(path, "w") as f:
+            cfg.write(f)
+
+    def _read_project_camera(self, proj_dir):
+        cfg = configparser.ConfigParser()
+        cfg.read(os.path.join(proj_dir, "project.ini"))
+        self.config.camera_exposure_mode = cfg.get("Camera", "camera_exposure_mode", fallback="P")
+        self.config.camera_awb_mode = cfg.get("Camera", "camera_awb_mode", fallback="Auto")
+        self.config.camera_iso = cfg.get("Camera", "camera_iso", fallback="Auto")
+        self.config.camera_shutterspeed = cfg.get("Camera", "camera_shutterspeed", fallback="auto")
+        self.config.camera_aperture = cfg.get("Camera", "camera_aperture", fallback="auto")
+
+    def write_project_camera(self, proj_dir=None):
+        """Persist current camera config values to project.ini of the active project."""
+        self._write_project_ini_camera(proj_dir or self.project_dir(), {
+            'camera_exposure_mode': self.config.camera_exposure_mode,
+            'camera_awb_mode': self.config.camera_awb_mode,
+            'camera_iso': self.config.camera_iso,
+            'camera_shutterspeed': self.config.camera_shutterspeed,
+            'camera_aperture': self.config.camera_aperture,
+        })
+
+    # ── Project password (project.ini [Security]) ─────────────────────────
+
+    def project_has_password(self, name):
+        cfg = configparser.ConfigParser()
+        cfg.read(self._project_ini_path(name))
+        return bool(cfg.get("Security", "password_hash", fallback=""))
+
+    def set_project_password(self, name, password):
+        path = self._project_ini_path(name)
+        cfg = configparser.ConfigParser()
+        cfg.read(path)
+        if password:
+            if not cfg.has_section("Security"):
+                cfg.add_section("Security")
+            cfg.set("Security", "password_hash", generate_password_hash(password))
+        else:
+            if cfg.has_section("Security"):
+                cfg.remove_section("Security")
+        with open(path, "w") as f:
+            cfg.write(f)
+
+    def check_project_password(self, name, password):
+        cfg = configparser.ConfigParser()
+        cfg.read(self._project_ini_path(name))
+        stored = cfg.get("Security", "password_hash", fallback="")
+        if not stored:
+            return True
+        return check_password_hash(stored, password)
+
+    # ── Main config read/write ─────────────────────────────────────────────
 
     def readConfiguration(self):
         logging.debug("Read Config File")
@@ -208,15 +369,8 @@ class ConfigParser:
 
         self.config.printPicsEnable = self.configParser.getboolean("Debug", "print", fallback=True)
 
-        if not self.config.printPicsEnable:
-            logging.debug("Printing pics disabled")
-
-        self.config.photo_abs_file_path = os.path.join(REAL_PATH,
-            self.configParser.get("Paths", "photo_path", fallback="Photos/"))
         self.config.screens_abs_file_path = os.path.join(REAL_PATH,
             self.configParser.get("Paths", "screen_path", fallback="Screens/"))
-        self.config.templates_file_path = os.path.join(REAL_PATH,
-            self.configParser.get("Paths", "template_path", fallback="Templates/"))
 
         self.config.pin_button_left = int(self.configParser.get("InOut", "pin_button_left", fallback="23"))
         self.config.pin_button_right = int(self.configParser.get("InOut", "pin_button_right", fallback="24"))
@@ -261,20 +415,25 @@ class ConfigParser:
         self.config.screen_change_paper = os.path.join(self.config.screens_abs_file_path,
             self.configParser.get("Screens", "screen_change_paper", fallback="ScreenChangePaper.png"))
 
-        self.config.camera_exposure_mode = self.configParser.get("Camera", "camera_exposure_mode", fallback="P")
-        self.config.camera_awb_mode = self.configParser.get("Camera", "camera_awb_mode", fallback="Auto")
-        self.config.camera_iso = self.configParser.get("Camera", "camera_iso", fallback="Auto")
-        self.config.camera_shutterspeed = self.configParser.get("Camera", "camera_shutterspeed", fallback="auto")
-        self.config.camera_aperture = self.configParser.get("Camera", "camera_aperture", fallback="auto")
-
-        self.config.webserver_user = self.configParser.get("WebServer", "webserver_user", fallback="")
-        self.config.webserver_password = self.configParser.get("WebServer", "webserver_password", fallback="")
-
         self.config.screen_photo = []
         for i in range(0, 9):
             self.config.screen_photo.append(os.path.join(self.config.screens_abs_file_path,
                 self.configParser.get("Screens", "screen_photo_" + str(i + 1),
                     fallback="ScreenPhoto" + str(i + 1) + ".png")))
+
+        self.config.webserver_user = self.configParser.get("WebServer", "webserver_user", fallback="")
+        self.config.webserver_password = self.configParser.get("WebServer", "webserver_password", fallback="")
+
+        # Active project → derive paths
+        active = self.configParser.get("Project", "active", fallback="Default")
+        self.config.active_project = active
+        proj_dir = os.path.join(PROJECTS_PATH, active)
+        self.config.templates_file_path = proj_dir
+        self.config.photo_abs_file_path = os.path.join(proj_dir, "Photos")
+
+        # Camera settings from project.ini
+        self._read_project_camera(proj_dir)
+
         return self.config
 
     def parseData(self, data):
@@ -323,9 +482,8 @@ class ConfigParser:
         self.configParser.set("Debug", "debug", str(self.config.debug))
         self.configParser.set("Debug", "print", str(self.config.printPicsEnable))
 
-        self.configParser.set("Paths", "photo_path", self.config.photo_abs_file_path[len(REAL_PATH):].lstrip("/"))
-        self.configParser.set("Paths", "screen_path", self.config.screens_abs_file_path[len(REAL_PATH):].lstrip("/"))
-        self.configParser.set("Paths", "template_path", self.config.templates_file_path[len(REAL_PATH):].lstrip("/"))
+        self.configParser.set("Paths", "screen_path",
+            self.config.screens_abs_file_path[len(REAL_PATH):].lstrip("/"))
 
         self.configParser.set("InOut", "pin_button_left", str(self.config.pin_button_left))
         self.configParser.set("InOut", "pin_button_right", str(self.config.pin_button_right))
@@ -337,11 +495,7 @@ class ConfigParser:
         self.configParser.set("Resolution", "flip_screen_h", str(self.config.flip_screen_h))
         self.configParser.set("Resolution", "flip_screen_v", str(self.config.flip_screen_v))
 
-        self.configParser.set("Camera", "camera_exposure_mode", str(self.config.camera_exposure_mode))
-        self.configParser.set("Camera", "camera_awb_mode", str(self.config.camera_awb_mode))
-        self.configParser.set("Camera", "camera_iso", str(self.config.camera_iso))
-        self.configParser.set("Camera", "camera_shutterspeed", str(self.config.camera_shutterspeed))
-        self.configParser.set("Camera", "camera_aperture", str(self.config.camera_aperture))
+        self.configParser.set("Project", "active", str(self.config.active_project))
 
         self.configParser.set("WebServer", "webserver_user", str(self.config.webserver_user))
         self.configParser.set("WebServer", "webserver_password", str(self.config.webserver_password))

@@ -22,6 +22,11 @@ Templates/*
 !Templates/Default/
 !Templates/.gitkeep
 
+# Templates — only ship the Default reference template
+Projects/*
+!Projects/Default/
+!Projects/.gitkeep
+
 # macOS metadata
 .DS_Store
 **/.DS_Store

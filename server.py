@@ -5,9 +5,9 @@ import threading
 from functools import wraps
 
 from json import JSONEncoder
-from flask import Flask, request, render_template, send_from_directory, redirect, url_for, flash, jsonify, Response
+from flask import Flask, request, render_template, send_from_directory, redirect, url_for, jsonify, Response, session
 from werkzeug.utils import secure_filename
-from config_parser import TemplateParser, ConfigParser
+from config_parser import TemplateParser, ConfigParser, PROJECTS_PATH
 import logging
 from datetime import datetime
 import secrets
@@ -72,7 +72,7 @@ except FileNotFoundError:
 
 
 # ---------------------------------------------------------------------------
-# Auth
+# Auth + Project unlock
 # ---------------------------------------------------------------------------
 
 def requires_auth(f):
@@ -89,6 +89,51 @@ def requires_auth(f):
                 )
         return f(*args, **kwargs)
     return decorated
+
+
+def _project_unlocked(name):
+    if not app.configParser:
+        return True
+    if not app.configParser.project_has_password(name):
+        return True
+    return name in session.get('unlocked_projects', [])
+
+
+def requires_active_project_unlock(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if app.configParser:
+            active = app.configParser.config.active_project
+            if not _project_unlocked(active):
+                return redirect(url_for('ui_project_unlock',
+                                        name=active, next=request.path))
+        return f(*args, **kwargs)
+    return decorated
+
+
+@app.context_processor
+def _inject_project_context():
+    active = "Default"
+    locked = False
+    if app.configParser:
+        active = app.configParser.config.active_project
+        locked = app.configParser.project_has_password(active)
+    return dict(active_project=active, active_project_locked=locked)
+
+
+def _do_select_project(name):
+    """Switch active project. Uses photobooth.switch_project() when real hardware is present,
+    falls back to direct configParser/templateParser calls for standalone mode."""
+    if app.photobooth and hasattr(app.photobooth, 'camera') and app.photobooth.camera:
+        try:
+            app.photobooth.switch_project(name)
+            return
+        except Exception as e:
+            logging.warning(f"switch_project error: {e}")
+    # Standalone or fallback: update config and templateParser directly
+    app.configParser.set_active_project(name)
+    if app.templateParser:
+        app.templateParser.set_path(app.configParser.config.templates_file_path)
 
 
 # ---------------------------------------------------------------------------
@@ -122,13 +167,34 @@ def api_save_config():
 # JSON API — layouts
 # ---------------------------------------------------------------------------
 
+@app.route('/projects', methods=['GET'])
+def api_list_projects():
+    projects = app.configParser.list_projects() if app.configParser else []
+    active = app.configParser.config.active_project if app.configParser else "Default"
+    return jsonify({"projects": projects, "active": active})
+
+
+@app.route('/project/select', methods=['POST'])
+@requires_auth
+def api_project_select():
+    name = (request.get_json() or {}).get("name", "")
+    if not name or name not in (app.configParser.list_projects() if app.configParser else []):
+        return jsonify({"msg": "not found"}), 404
+    if not _project_unlocked(name):
+        return jsonify({"msg": "locked"}), 403
+    _do_select_project(name)
+    return jsonify({"msg": "activated", "project": name})
+
+
 @app.route('/layouts', methods=['GET'])
+@requires_active_project_unlock
 def api_list_layouts():
     layouts = app.templateParser.layout
     return json.dumps(layouts, indent=4, cls=ConfigEncoder)
 
 
 @app.route("/layout/save", methods=["GET"])
+@requires_active_project_unlock
 def api_save_layout():
     app.templateParser.writeCardConfig()
     if app.photobooth:
@@ -140,6 +206,7 @@ def api_save_layout():
 
 
 @app.route("/layout/edit/<id>", methods=["POST"])
+@requires_active_project_unlock
 def api_edit_layout(id):
     data = request.get_json()
     app.templateParser.parseData(data)
@@ -157,6 +224,7 @@ def api_edit_layout(id):
 
 @app.route("/camera/apply", methods=["POST"])
 @requires_auth
+@requires_active_project_unlock
 def api_camera_apply():
     data = request.get_json() or {}
     app.configParser.parseData(data)
@@ -250,12 +318,14 @@ def api_upload_system_image():
 
 @app.route("/photo/<name>", methods=["GET"])
 @requires_auth
+@requires_active_project_unlock
 def api_get_photo(name):
     return send_from_directory(app.configParser.config.photo_abs_file_path, name)
 
 
 @app.route("/photo/<name>/delete", methods=["POST"])
 @requires_auth
+@requires_active_project_unlock
 def api_delete_photo(name):
     photo_dir = app.configParser.config.photo_abs_file_path
     filepath = os.path.realpath(os.path.join(photo_dir, os.path.basename(name)))
@@ -269,6 +339,7 @@ def api_delete_photo(name):
 
 @app.route("/photos", methods=["GET"])
 @requires_auth
+@requires_active_project_unlock
 def api_list_photos():
     photo_dir = app.configParser.config.photo_abs_file_path
     files = []
@@ -348,6 +419,7 @@ def ui_config_save():
 
 @app.route("/ui/camera", methods=["GET"])
 @requires_auth
+@requires_active_project_unlock
 def ui_camera():
     cfg = app.configParser.config
     wb_modes = ["Auto", "Daylight", "Shadow", "Cloudy", "Tungsten", "Fluorescent", "Flash", "Manual"]
@@ -372,6 +444,7 @@ def ui_camera():
 
 @app.route("/ui/camera/save", methods=["POST"])
 @requires_auth
+@requires_active_project_unlock
 def ui_camera_save():
     data = {
         "camera_exposure_mode": request.form.get("camera_exposure_mode"),
@@ -383,12 +456,16 @@ def ui_camera_save():
         "flip_screen_v": "on" if request.form.get("flip_screen_v") else "false",
     }
     app.configParser.parseData(data)
+    # Camera settings go into project.ini, not config.ini
+    app.configParser.write_project_camera()
+    # Global settings (flips) still into config.ini
     app.configParser.writeConfig()
     return redirect(url_for("ui_camera", msg="saved"))
 
 
 @app.route("/ui/layouts", methods=["GET"])
 @requires_auth
+@requires_active_project_unlock
 def ui_layouts():
     layouts = app.templateParser.layout
     msg = request.args.get("msg")
@@ -397,6 +474,7 @@ def ui_layouts():
 
 @app.route("/ui/layouts/editor/<int:layout_id>", methods=["GET"])
 @requires_auth
+@requires_active_project_unlock
 def ui_layout_editor(layout_id):
     if layout_id < 1 or layout_id > len(app.templateParser.layout):
         return redirect(url_for("ui_layouts"))
@@ -406,6 +484,7 @@ def ui_layout_editor(layout_id):
 
 @app.route("/ui/layouts/save/<int:layout_id>", methods=["POST"])
 @requires_auth
+@requires_active_project_unlock
 def ui_layouts_save(layout_id):
     pic_count = int(request.form.get("picCount", 1))
     layout_in_fg = bool(request.form.get("layoutInForeground"))
@@ -479,6 +558,7 @@ def ui_screens_upload():
 
 @app.route("/ui/photos", methods=["GET"])
 @requires_auth
+@requires_active_project_unlock
 def ui_photos():
     photo_dir = app.configParser.config.photo_abs_file_path
     photos = []
@@ -492,10 +572,117 @@ def ui_photos():
 
 
 # ---------------------------------------------------------------------------
+# UI — Projects
+# ---------------------------------------------------------------------------
+
+@app.route("/ui/projects", methods=["GET"])
+@requires_auth
+def ui_projects():
+    active = app.configParser.config.active_project
+    projects = []
+    for name in app.configParser.list_projects():
+        photo_dir = os.path.join(PROJECTS_PATH, name, "Photos")
+        count = 0
+        if os.path.isdir(photo_dir):
+            count = len([f for f in os.listdir(photo_dir)
+                         if f.lower().endswith(('.jpg', '.jpeg', '.png'))])
+        projects.append({
+            "name": name,
+            "active": name == active,
+            "has_password": app.configParser.project_has_password(name),
+            "unlocked": _project_unlocked(name),
+            "photo_count": count,
+        })
+    msg = request.args.get("msg")
+    return render_template("projects.html", projects=projects, msg=msg)
+
+
+@app.route("/ui/projects/select", methods=["POST"])
+@requires_auth
+def ui_project_select():
+    name = request.form.get("name", "").strip()
+    if not name or name not in app.configParser.list_projects():
+        return redirect(url_for("ui_projects", msg="not_found"))
+    if not _project_unlocked(name):
+        return redirect(url_for("ui_project_unlock", name=name,
+                                next=url_for("ui_project_select_do", name=name)))
+    _do_select_project(name)
+    return redirect(url_for("ui_projects", msg="activated"))
+
+
+@app.route("/ui/projects/select/<name>", methods=["GET"])
+@requires_auth
+def ui_project_select_do(name):
+    """GET target after unlock — activates the project."""
+    if not name or name not in app.configParser.list_projects():
+        return redirect(url_for("ui_projects", msg="not_found"))
+    _do_select_project(name)
+    return redirect(url_for("ui_projects", msg="activated"))
+
+
+@app.route("/ui/projects/create", methods=["POST"])
+@requires_auth
+def ui_project_create():
+    raw = request.form.get("name", "").strip()
+    name = secure_filename(raw)
+    if not name:
+        return redirect(url_for("ui_projects", msg="invalid_name"))
+    if name in app.configParser.list_projects():
+        return redirect(url_for("ui_projects", msg="exists"))
+    app.configParser.create_project(name)
+    return redirect(url_for("ui_projects", msg="created"))
+
+
+@app.route("/ui/projects/<name>/password", methods=["POST"])
+@requires_auth
+def ui_project_password(name):
+    if name not in app.configParser.list_projects():
+        return redirect(url_for("ui_projects", msg="not_found"))
+    password = request.form.get("password", "")
+    app.configParser.set_project_password(name, password)
+    return redirect(url_for("ui_projects", msg="password_set"))
+
+
+@app.route("/ui/projects/<name>/delete", methods=["POST"])
+@requires_auth
+def ui_project_delete(name):
+    if name == app.configParser.config.active_project:
+        return redirect(url_for("ui_projects", msg="delete_active"))
+    if app.configParser.project_has_password(name) and not _project_unlocked(name):
+        return redirect(url_for("ui_project_unlock", name=name, next=request.path))
+    try:
+        app.configParser.delete_project(name)
+    except Exception as e:
+        logging.warning(f"delete_project error: {e}")
+    return redirect(url_for("ui_projects", msg="deleted"))
+
+
+@app.route("/ui/projects/unlock", methods=["GET", "POST"])
+@requires_auth
+def ui_project_unlock():
+    name = request.args.get("name") or request.form.get("name", "")
+    next_url = request.args.get("next") or request.form.get("next", url_for("ui_projects"))
+    error = None
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if app.configParser.check_project_password(name, password):
+            unlocked = session.get("unlocked_projects", [])
+            if name not in unlocked:
+                unlocked.append(name)
+            session["unlocked_projects"] = unlocked
+            return redirect(next_url)
+        error = "Falsches Passwort"
+
+    return render_template("unlock.html", name=name, next=next_url, error=error)
+
+
+# ---------------------------------------------------------------------------
 # Uploads / static helpers
 # ---------------------------------------------------------------------------
 
 @app.route('/uploads/<name>')
+@requires_active_project_unlock
 def download_file(name):
     return send_from_directory(app.configParser.config.templates_file_path, name)
 
@@ -517,6 +704,9 @@ class Photobooth:
         pass
 
     def on_enter_PowerOn(self):
+        pass
+
+    def switch_project(self, name):
         pass
 
 

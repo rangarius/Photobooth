@@ -210,6 +210,23 @@
     </div>
 
     <div class="p-card">
+      <h3>Template Image</h3>
+      <div style="margin-bottom:8px">
+        <img id="tpl-preview" src="/uploads/{{ layout.cardFileName }}?t={{ range(1,999999)|random }}"
+             style="width:100%;border-radius:4px;border:1px solid #e5e7eb;display:block"
+             onerror="this.style.display='none'">
+      </div>
+      <label style="display:block;cursor:pointer">
+        <span class="btn btn-secondary" style="width:100%;text-align:center;display:block;font-size:0.82em;box-sizing:border-box">
+          📂 Choose template…
+        </span>
+        <input type="file" id="tpl-input" accept="image/png,image/jpeg"
+               style="display:none" onchange="previewTemplate(this)">
+      </label>
+      <div id="tpl-name" style="font-size:0.75em;color:#9ca3af;margin-top:4px;text-align:center"></div>
+    </div>
+
+    <div class="p-card">
       <h3>Actions</h3>
       <div style="display:flex;flex-direction:column;gap:8px">
         <button class="btn btn-success" onclick="saveLayout()" style="width:100%">Save Layout {{ layout_id }}</button>
@@ -418,6 +435,24 @@ function startRotate(e, idx) {
   document.addEventListener('mouseup', up);
 }
 
+// ── Template preview ───────────────────────────────────
+function previewTemplate(input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  document.getElementById('tpl-name').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('tpl-preview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    // Also update the canvas background for live preview
+    document.getElementById('bg-img').src = e.target.result;
+    document.getElementById('bg-img').style.display = 'block';
+    document.getElementById('bg-fb').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
 // ── Save ───────────────────────────────────────────────
 function saveLayout() {
   const fd = new FormData();
@@ -431,6 +466,9 @@ function saveLayout() {
     fd.append(`pic_${i}_rotate`,  f.rotate);
     fd.append(`pic_${i}_color`,   f.color || 'color');
   });
+
+  const tplFile = document.getElementById('tpl-input').files[0];
+  if (tplFile) fd.append('template_image', tplFile);
 
   fetch(`/ui/layouts/save/${LAYOUT_ID}`, { method: 'POST', body: fd })
     .then(r => {
