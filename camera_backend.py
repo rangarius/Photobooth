@@ -148,6 +148,20 @@ class GPhoto2Backend:
             if was_previewing and self._on_preview_frame:
                 self.start_preview(self._on_preview_frame)
 
+    def get_battery_level(self):
+        """Return battery level as 0–100 int, or None if unavailable."""
+        if not self._camera:
+            return None
+        try:
+            with self._lock:
+                cfg = self._camera.get_config()
+            node = cfg.get_child_by_name('batterylevel')
+            val = node.get_value()          # e.g. "100%", "67%", "33%"
+            return int(str(val).strip().rstrip('%'))
+        except Exception as e:
+            logging.debug(f"get_battery_level failed: {e}")
+            return None
+
     def close(self):
         self.stop_preview()
         if self._camera:

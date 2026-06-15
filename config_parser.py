@@ -10,6 +10,37 @@ from photoCard_new import PhotoCard, PictureOnCard
 logger = logging.getLogger(__name__)
 REAL_PATH = os.path.dirname(os.path.realpath(__file__))
 PROJECTS_PATH = os.path.join(REAL_PATH, "Projects")
+BRANDING_PATH = os.path.join(REAL_PATH, "Branding")
+
+BRANDABLE_SCREENS = [
+    ("logo",              "ScreenLogo.png",           "Logo"),
+    ("camera_charging",  "ScreenCameraCharging.png", "Camera Charging"),
+    ("battery_full",     "ScreenBatteryFull.png",    "Battery Full (>75%)"),
+    ("battery_2_3",      "ScreenBattery2_3.png",     "Battery 2/3 (50–75%)"),
+    ("battery_1_3",      "ScreenBattery1_3.png",     "Battery 1/3 (25–50%)"),
+    ("battery_low",      "ScreenBatteryLow.png",     "Battery Low (<25%)"),
+    ("countdown_5", "ScreenCountdown5.png",  "Countdown 5s"),
+    ("countdown_4", "ScreenCountdown4.png",  "Countdown 4s"),
+    ("countdown_3", "ScreenCountdown3.png",  "Countdown 3s"),
+    ("countdown_2", "ScreenCountdown2.png",  "Countdown 2s"),
+    ("countdown_1", "ScreenCountdown1.png",  "Countdown 1s"),
+    ("countdown_0", "ScreenCountdown0.png",  "Countdown 0s"),
+    ("black",       "ScreenBlack.png",       "Black"),
+    ("again_next",  "ScreenAgainNext.png",   "Again / Next"),
+    ("wait",        "ScreenWait.png",        "Please Wait"),
+    ("print",     "ScreenPrint.png",     "Print"),
+    ("printing",  "ScreenPrinting.png",  "Printing…"),
+    ("photo_1",     "ScreenPhoto1.png",      "Photo 1/N"),
+    ("photo_2",     "ScreenPhoto2.png",      "Photo 2/N"),
+    ("photo_3",     "ScreenPhoto3.png",      "Photo 3/N"),
+    ("photo_4",     "ScreenPhoto4.png",      "Photo 4/N"),
+    ("photo_5",     "ScreenPhoto5.png",      "Photo 5/N"),
+    ("photo_6",     "ScreenPhoto6.png",      "Photo 6/N"),
+    ("photo_7",     "ScreenPhoto7.png",      "Photo 7/N"),
+    ("photo_8",     "ScreenPhoto8.png",      "Photo 8/N"),
+    ("photo_9",     "ScreenPhoto9.png",      "Photo 9/N"),
+]
+BRANDABLE_SCREEN_MAP = {key: (fname, label) for key, fname, label in BRANDABLE_SCREENS}
 
 
 class TemplateParser:
@@ -134,6 +165,7 @@ class Config:
     debug = True
     printPicsEnable = True
     active_project = "Default"
+    active_branding = "Default"
     photo_abs_file_path = ""
     screens_abs_file_path = ""
     templates_file_path = ""
@@ -155,6 +187,11 @@ class Config:
     base_path = os.path.dirname(os.path.realpath(__file__))
     screen_turnOnPrinter = "ScreenTurnOnPrinter.png"
     screen_logo = "ScreenLogo.png"
+    screen_camera_charging = "ScreenCameraCharging.png"
+    screen_battery_full    = "ScreenBatteryFull.png"
+    screen_battery_2_3     = "ScreenBattery2_3.png"
+    screen_battery_1_3     = "ScreenBattery1_3.png"
+    screen_battery_low     = "ScreenBatteryLow.png"
     screen_choose_layout = "ScreenChooseLayout.png"
     screen_countdown_0 = "ScreenCountdown0.png"
     screen_countdown_1 = "ScreenCountdown1.png"
@@ -166,7 +203,7 @@ class Config:
     screen_again_next = "ScreenAgainNext.png"
     screen_wait = "ScreenWait.png"
     screen_print = "ScreenPrint.png"
-    screen_print_again = "ScreenPrintagain.png"
+    screen_printing = "ScreenPrinting.png"
     screen_change_ink = "ScreenChangeInk.png"
     screen_change_paper = "ScreenChangePaper.png"
     screen_photo = []
@@ -190,6 +227,7 @@ class Config:
             "screen_h": self.screen_h,
             "flip_screen_h": self.flip_screen_h,
             "flip_screen_v": self.flip_screen_v,
+            "active_branding": self.active_branding,
             "camera_awb_mode": self.camera_awb_mode,
             "camera_iso": self.camera_iso,
             "camera_exposure_mode": self.camera_exposure_mode,
@@ -214,6 +252,7 @@ class ConfigParser:
         self.configParser.read(self.path)
         self.config = Config()
         self.ensure_default_project()
+        self.ensure_default_branding()
         self.readConfiguration()
 
     # ── Project filesystem helpers ─────────────────────────────────────────
@@ -280,6 +319,9 @@ class ConfigParser:
             'camera_shutterspeed': self.config.camera_shutterspeed,
             'camera_aperture': self.config.camera_aperture,
         })
+
+        # Default branding for new project
+        self.set_project_branding(name, "Default")
 
     def delete_project(self, name):
         if name == self.config.active_project:
@@ -355,6 +397,71 @@ class ConfigParser:
             return True
         return check_password_hash(stored, password)
 
+    # ── Branding helpers ───────────────────────────────────────────────────
+
+    def ensure_default_branding(self):
+        """Bootstrap Branding/Default/ from Screens/ on first run."""
+        default_dir = os.path.join(BRANDING_PATH, "Default")
+        os.makedirs(default_dir, exist_ok=True)
+        screens_dir = os.path.join(REAL_PATH,
+            self.configParser.get("Paths", "screen_path", fallback="Screens/"))
+        if not os.path.isdir(screens_dir):
+            return
+        for fname in os.listdir(screens_dir):
+            if fname == "ScreenChooseLayout.png":
+                continue
+            if not fname.lower().endswith(".png"):
+                continue
+            dest = os.path.join(default_dir, fname)
+            src = os.path.join(screens_dir, fname)
+            if not (os.path.exists(dest) and os.path.getsize(dest) > 0):
+                if os.path.exists(src) and os.path.getsize(src) > 0:
+                    shutil.copy2(src, dest)
+
+    def _resolve_screen(self, branding, filename):
+        """Resolve a screen filename with branding fallback to Default."""
+        if branding and branding != "Default":
+            candidate = os.path.join(BRANDING_PATH, branding, filename)
+            if os.path.isfile(candidate) and os.path.getsize(candidate) > 0:
+                return candidate
+        default = os.path.join(BRANDING_PATH, "Default", filename)
+        if os.path.isfile(default):
+            return default
+        return os.path.join(self.config.screens_abs_file_path, filename)
+
+    def list_brandings(self):
+        if not os.path.isdir(BRANDING_PATH):
+            return ["Default"]
+        return sorted(n for n in os.listdir(BRANDING_PATH)
+                      if os.path.isdir(os.path.join(BRANDING_PATH, n)))
+
+    def create_branding(self, name):
+        os.makedirs(os.path.join(BRANDING_PATH, name), exist_ok=True)
+
+    def delete_branding(self, name):
+        if name == "Default":
+            raise ValueError("Cannot delete Default branding")
+        d = os.path.join(BRANDING_PATH, name)
+        if os.path.isdir(d):
+            shutil.rmtree(d)
+
+    def get_project_branding(self, name):
+        cfg = configparser.ConfigParser()
+        cfg.read(self._project_ini_path(name))
+        return cfg.get("Branding", "name", fallback="Default")
+
+    def set_project_branding(self, proj_name, branding_name):
+        path = self._project_ini_path(proj_name)
+        cfg = configparser.ConfigParser()
+        cfg.read(path)
+        if not cfg.has_section("Branding"):
+            cfg.add_section("Branding")
+        cfg.set("Branding", "name", branding_name)
+        with open(path, "w") as f:
+            cfg.write(f)
+        if proj_name == self.config.active_project:
+            self.readConfiguration()
+
     # ── Main config read/write ─────────────────────────────────────────────
 
     def readConfiguration(self):
@@ -382,45 +489,6 @@ class ConfigParser:
         self.config.flip_screen_h = self.configParser.getboolean("Resolution", "flip_screen_h", fallback=False)
         self.config.flip_screen_v = self.configParser.getboolean("Resolution", "flip_screen_v", fallback=False)
 
-        self.config.screen_turnOnPrinter = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_turn_on_printer", fallback="ScreenTurnOnPrinter.png"))
-        self.config.screen_logo = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_logo", fallback="ScreenLogo.png"))
-        self.config.screen_choose_layout = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_Choose_Layout", fallback="ScreenChooseLayout.png"))
-        self.config.screen_countdown_0 = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_countdown_0", fallback="ScreenCountdown0.png"))
-        self.config.screen_countdown_1 = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_countdown_1", fallback="ScreenCountdown1.png"))
-        self.config.screen_countdown_2 = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_countdown_2", fallback="ScreenCountdown2.png"))
-        self.config.screen_countdown_3 = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_countdown_3", fallback="ScreenCountdown3.png"))
-        self.config.screen_countdown_4 = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_countdown_4", fallback="ScreenCountdown4.png"))
-        self.config.screen_countdown_5 = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_countdown_5", fallback="ScreenCountdown5.png"))
-        self.config.screen_black = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_black", fallback="ScreenBlack.png"))
-        self.config.screen_again_next = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_again_next", fallback="ScreenAgainNext.png"))
-        self.config.screen_wait = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_wait", fallback="ScreenWait.png"))
-        self.config.screen_print = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_print", fallback="ScreenPrint.png"))
-        self.config.screen_print_again = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_print_again", fallback="ScreenPrintagain.png"))
-        self.config.screen_change_ink = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_change_ink", fallback="ScreenChangeInk.png"))
-        self.config.screen_change_paper = os.path.join(self.config.screens_abs_file_path,
-            self.configParser.get("Screens", "screen_change_paper", fallback="ScreenChangePaper.png"))
-
-        self.config.screen_photo = []
-        for i in range(0, 9):
-            self.config.screen_photo.append(os.path.join(self.config.screens_abs_file_path,
-                self.configParser.get("Screens", "screen_photo_" + str(i + 1),
-                    fallback="ScreenPhoto" + str(i + 1) + ".png")))
-
         self.config.webserver_user = self.configParser.get("WebServer", "webserver_user", fallback="")
         self.config.webserver_password = self.configParser.get("WebServer", "webserver_password", fallback="")
 
@@ -433,6 +501,46 @@ class ConfigParser:
 
         # Camera settings from project.ini
         self._read_project_camera(proj_dir)
+
+        # Branding: resolve active branding for this project
+        active_branding = self.get_project_branding(active)
+        self.config.active_branding = active_branding
+
+        # Non-brandable maintenance screens — always from Branding/Default/ with Screens/ fallback
+        def _maint(fname):
+            p = os.path.join(BRANDING_PATH, "Default", fname)
+            return p if os.path.isfile(p) else os.path.join(self.config.screens_abs_file_path, fname)
+        self.config.screen_turnOnPrinter = _maint(self.configParser.get("Screens", "screen_turn_on_printer", fallback="ScreenTurnOnPrinter.png"))
+        self.config.screen_change_ink    = _maint(self.configParser.get("Screens", "screen_change_ink",      fallback="ScreenChangeInk.png"))
+        self.config.screen_change_paper  = _maint(self.configParser.get("Screens", "screen_change_paper",    fallback="ScreenChangePaper.png"))
+
+        # ScreenChooseLayout: generated at runtime, stays in screens_abs_file_path
+        self.config.screen_choose_layout = os.path.join(self.config.screens_abs_file_path,
+            self.configParser.get("Screens", "screen_Choose_Layout", fallback="ScreenChooseLayout.png"))
+
+        # Brandable screens — resolved with per-branding override + Default fallback
+        self.config.screen_logo             = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_logo",             fallback="ScreenLogo.png"))
+        self.config.screen_camera_charging  = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_camera_charging",  fallback="ScreenCameraCharging.png"))
+        self.config.screen_battery_full     = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_battery_full",     fallback="ScreenBatteryFull.png"))
+        self.config.screen_battery_2_3      = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_battery_2_3",      fallback="ScreenBattery2_3.png"))
+        self.config.screen_battery_1_3      = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_battery_1_3",      fallback="ScreenBattery1_3.png"))
+        self.config.screen_battery_low      = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_battery_low",      fallback="ScreenBatteryLow.png"))
+        self.config.screen_countdown_5 = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_countdown_5", fallback="ScreenCountdown5.png"))
+        self.config.screen_countdown_4 = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_countdown_4", fallback="ScreenCountdown4.png"))
+        self.config.screen_countdown_3 = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_countdown_3", fallback="ScreenCountdown3.png"))
+        self.config.screen_countdown_2 = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_countdown_2", fallback="ScreenCountdown2.png"))
+        self.config.screen_countdown_1 = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_countdown_1", fallback="ScreenCountdown1.png"))
+        self.config.screen_countdown_0 = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_countdown_0", fallback="ScreenCountdown0.png"))
+        self.config.screen_black       = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_black",        fallback="ScreenBlack.png"))
+        self.config.screen_again_next  = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_again_next",  fallback="ScreenAgainNext.png"))
+        self.config.screen_wait        = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_wait",        fallback="ScreenWait.png"))
+        self.config.screen_print    = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_print",    fallback="ScreenPrint.png"))
+        self.config.screen_printing = self._resolve_screen(active_branding, self.configParser.get("Screens", "screen_printing", fallback="ScreenPrinting.png"))
+        self.config.screen_photo = [
+            self._resolve_screen(active_branding,
+                self.configParser.get("Screens", f"screen_photo_{i+1}", fallback=f"ScreenPhoto{i+1}.png"))
+            for i in range(9)
+        ]
 
         return self.config
 

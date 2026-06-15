@@ -70,8 +70,8 @@ class Photobooth:
 
         self.cycleCounter = 0
 
-        # load the Logo of the Photobooth and display it
-        self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
+        self.overlayscreen_logo = -1
+        self._overlay_battery = -1
 
         # find the USB Drive, if connected
         self.PhotoCopyPath = self.GetMountpoint()
@@ -84,20 +84,69 @@ class Photobooth:
         # t1.start()
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
+        t3 = threading.Thread(target=self._battery_poll_loop, daemon=True)
+        t3.start()
         self.on_enter_PowerOn()
 
 
         # Start the Application
 
 
+    def _battery_screen_for_level(self, level):
+        """Map 0–100 battery level to the configured screen path."""
+        if level > 75:
+            return self.config.screen_battery_full
+        elif level > 50:
+            return self.config.screen_battery_2_3
+        elif level > 25:
+            return self.config.screen_battery_1_3
+        else:
+            return self.config.screen_battery_low
+
+    def _battery_poll_loop(self):
+        """Background thread: poll battery level every 30 s and update overlay."""
+        POLL_INTERVAL = 30
+        last_screen = None
+        while True:
+            time.sleep(POLL_INTERVAL)
+            try:
+                level = self.camera.get_battery_level()
+                if level is None:
+                    # Camera not ready yet — clear overlay if present
+                    if self._overlay_battery != -1:
+                        self.remove_overlay(self._overlay_battery)
+                        self._overlay_battery = -1
+                    last_screen = None
+                    continue
+                screen = self._battery_screen_for_level(level)
+                logging.debug(f"Battery: {level}% → {screen}")
+                if screen != last_screen:
+                    self.remove_overlay(self._overlay_battery)
+                    self._overlay_battery = self.overlay_image_transparency(screen, 0, 4)
+                    last_screen = screen
+            except Exception as e:
+                logging.warning(f"Battery poll error: {e}")
+
+    def _canon_usb_present(self):
+        """Return True if any Canon USB device (vendor 0x04A9) is detected."""
+        try:
+            for bus in usb.busses():
+                for dev in bus.devices:
+                    if dev.idVendor == 0x04A9:
+                        return True
+        except Exception:
+            pass
+        return False
+
     def setupCamera(self):
         logging.debug("Setup Camera")
         self.camera = GPhoto2Backend()
-        msg_id = -1
+        overlay_id = -1
         while True:
             try:
                 self.camera.setup(self.config)
-                self.display.remove_overlay(msg_id)
+                self.remove_overlay(overlay_id)
+                overlay_id = -1
                 logging.info("Camera ready")
                 self.camera.apply_settings(
                     iso=self.config.camera_iso,
@@ -109,8 +158,13 @@ class Photobooth:
                 return
             except Exception as e:
                 logging.warning(f"Camera not available ({e}) — retrying in 5s")
-                if msg_id == -1:
-                    msg_id = self.display.show_message(
+                # Remove any existing overlay before deciding what to show next
+                self.remove_overlay(overlay_id)
+                if self._canon_usb_present():
+                    logging.debug("Canon USB device found but gphoto2 failed — showing charging overlay")
+                    overlay_id = self.overlay_image_transparency(self.config.screen_camera_charging, 0, 6)
+                else:
+                    overlay_id = self.display.show_message(
                         "Bitte Kamera\nanschließen und\neinschalten"
                     )
                 time.sleep(5)
@@ -357,8 +411,12 @@ class Photobooth:
     def on_enter_PowerOn(self):
         self.readCardConfiguration()
 
-
         logging.debug("now on_enter_PowerOn")
+
+        # Refresh logo — picks up any branding or project change
+        self.remove_overlay(self.overlayscreen_logo)
+        self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
+
         self.overlay_screen_turnOnPrinter = -1
 
 
@@ -656,8 +714,6 @@ class Photobooth:
         time.sleep(1)
         self.setupCamera()
         self.startpreview()
-        self.overlayscreen_logo = self.overlay_image_transparency(self.config.screen_logo, 0, 5)
-
         self.to_PowerOn()
 
     def startpreview(self):

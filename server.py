@@ -1,13 +1,15 @@
+import io
 import os
 import json
 import base64
 import threading
+import zipfile
 from functools import wraps
 
 from json import JSONEncoder
 from flask import Flask, request, render_template, send_from_directory, redirect, url_for, jsonify, Response, session
 from werkzeug.utils import secure_filename
-from config_parser import TemplateParser, ConfigParser, PROJECTS_PATH
+from config_parser import TemplateParser, ConfigParser, PROJECTS_PATH, BRANDING_PATH, BRANDABLE_SCREENS, BRANDABLE_SCREEN_MAP
 import logging
 from datetime import datetime
 import secrets
@@ -115,10 +117,12 @@ def requires_active_project_unlock(f):
 def _inject_project_context():
     active = "Default"
     locked = False
+    active_branding = "Default"
     if app.configParser:
         active = app.configParser.config.active_project
         locked = app.configParser.project_has_password(active)
-    return dict(active_project=active, active_project_locked=locked)
+        active_branding = app.configParser.config.active_branding
+    return dict(active_project=active, active_project_locked=locked, active_branding=active_branding)
 
 
 def _do_select_project(name):
@@ -592,9 +596,11 @@ def ui_projects():
             "has_password": app.configParser.project_has_password(name),
             "unlocked": _project_unlocked(name),
             "photo_count": count,
+            "branding": app.configParser.get_project_branding(name),
         })
+    brandings = app.configParser.list_brandings()
     msg = request.args.get("msg")
-    return render_template("projects.html", projects=projects, msg=msg)
+    return render_template("projects.html", projects=projects, brandings=brandings, msg=msg)
 
 
 @app.route("/ui/projects/select", methods=["POST"])
@@ -675,6 +681,159 @@ def ui_project_unlock():
         error = "Falsches Passwort"
 
     return render_template("unlock.html", name=name, next=next_url, error=error)
+
+
+@app.route("/ui/projects/<name>/branding", methods=["POST"])
+@requires_auth
+def ui_project_set_branding(name):
+    branding = request.form.get("branding", "Default")
+    app.configParser.set_project_branding(name, branding)
+    if name == app.configParser.config.active_project and app.photobooth:
+        try:
+            app.photobooth.to_PowerOn()
+        except Exception:
+            pass
+    return redirect(url_for("ui_projects", msg="branding_set"))
+
+
+# ---------------------------------------------------------------------------
+# UI — Brandings
+# ---------------------------------------------------------------------------
+
+@app.route('/ui/brandings')
+@requires_auth
+def ui_brandings():
+    brandings = app.configParser.list_brandings()
+    branding_info = []
+    for name in brandings:
+        d = os.path.join(BRANDING_PATH, name)
+        count = len([f for f in os.listdir(d) if f.lower().endswith('.png')]) if os.path.isdir(d) else 0
+        branding_info.append({"name": name, "count": count})
+    return render_template('brandings.html', brandings=branding_info, msg=request.args.get('msg'))
+
+
+@app.route('/ui/brandings/create', methods=['POST'])
+@requires_auth
+def ui_brandings_create():
+    name = secure_filename(request.form.get('name', '').strip())
+    if not name:
+        return redirect(url_for('ui_brandings', msg='invalid_name'))
+    try:
+        app.configParser.create_branding(name)
+    except Exception:
+        return redirect(url_for('ui_brandings', msg='error'))
+    return redirect(url_for('ui_branding_detail', name=name))
+
+
+@app.route('/ui/brandings/<name>/delete', methods=['POST'])
+@requires_auth
+def ui_brandings_delete(name):
+    try:
+        app.configParser.delete_branding(name)
+    except ValueError:
+        return redirect(url_for('ui_brandings', msg='delete_default'))
+    return redirect(url_for('ui_brandings', msg='deleted'))
+
+
+@app.route('/ui/brandings/<name>')
+@requires_auth
+def ui_branding_detail(name):
+    if not os.path.isdir(os.path.join(BRANDING_PATH, name)):
+        return redirect(url_for('ui_brandings'))
+    screens = []
+    for key, fname, label in BRANDABLE_SCREENS:
+        custom_path = os.path.join(BRANDING_PATH, name, fname)
+        has_custom = os.path.isfile(custom_path) and os.path.getsize(custom_path) > 0
+        screens.append({'key': key, 'filename': fname, 'label': label, 'has_custom': has_custom})
+    return render_template('branding_detail.html', branding_name=name, screens=screens,
+                           msg=request.args.get('msg'))
+
+
+@app.route('/ui/brandings/<name>/upload/<screen_key>', methods=['POST'])
+@requires_auth
+def ui_branding_upload(name, screen_key):
+    if screen_key not in BRANDABLE_SCREEN_MAP:
+        return redirect(url_for('ui_branding_detail', name=name, msg='invalid_key'))
+    fname, _ = BRANDABLE_SCREEN_MAP[screen_key]
+    f = request.files.get('image')
+    if not f or not f.filename:
+        return redirect(url_for('ui_branding_detail', name=name, msg='no_file'))
+    dest = os.path.join(BRANDING_PATH, name, fname)
+    f.save(dest)
+    if app.configParser.config.active_branding == name:
+        app.configParser.readConfiguration()
+    return redirect(url_for('ui_branding_detail', name=name, msg='uploaded'))
+
+
+@app.route('/ui/brandings/<name>/reset/<screen_key>', methods=['POST'])
+@requires_auth
+def ui_branding_reset(name, screen_key):
+    if name == 'Default':
+        return redirect(url_for('ui_branding_detail', name=name))
+    if screen_key not in BRANDABLE_SCREEN_MAP:
+        return redirect(url_for('ui_branding_detail', name=name))
+    fname, _ = BRANDABLE_SCREEN_MAP[screen_key]
+    path = os.path.join(BRANDING_PATH, name, fname)
+    if os.path.isfile(path):
+        os.remove(path)
+    if app.configParser.config.active_branding == name:
+        app.configParser.readConfiguration()
+    return redirect(url_for('ui_branding_detail', name=name, msg='reset'))
+
+
+@app.route('/branding/<pkg>/<filename>')
+@requires_auth
+def serve_branding_asset(pkg, filename):
+    candidate = os.path.join(BRANDING_PATH, pkg, filename)
+    if os.path.isfile(candidate) and os.path.getsize(candidate) > 0:
+        return send_from_directory(os.path.join(BRANDING_PATH, pkg), filename)
+    default = os.path.join(BRANDING_PATH, 'Default', filename)
+    if os.path.isfile(default):
+        return send_from_directory(os.path.join(BRANDING_PATH, 'Default'), filename)
+    return '', 404
+
+
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# ZIP downloads
+# ---------------------------------------------------------------------------
+
+@app.route('/ui/photos/download')
+@requires_active_project_unlock
+def ui_photos_download():
+    photo_dir = app.configParser.config.photo_abs_file_path
+    project = app.configParser.config.active_project
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        if os.path.isdir(photo_dir):
+            for fname in sorted(os.listdir(photo_dir)):
+                if fname.lower().endswith(('.jpg', '.jpeg', '.png')):
+                    zf.write(os.path.join(photo_dir, fname), fname)
+    buf.seek(0)
+    return Response(
+        buf,
+        mimetype='application/zip',
+        headers={'Content-Disposition': f'attachment; filename="photos_{project}.zip"'},
+    )
+
+
+@app.route('/ui/brandings/<name>/download')
+@requires_auth
+def ui_branding_download(name):
+    branding_dir = os.path.join(BRANDING_PATH, name)
+    if not os.path.isdir(branding_dir):
+        return redirect(url_for('ui_brandings'))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for fname in sorted(os.listdir(branding_dir)):
+            if fname.lower().endswith('.png'):
+                zf.write(os.path.join(branding_dir, fname), fname)
+    buf.seek(0)
+    return Response(
+        buf,
+        mimetype='application/zip',
+        headers={'Content-Disposition': f'attachment; filename="branding_{name}.zip"'},
+    )
 
 
 # ---------------------------------------------------------------------------

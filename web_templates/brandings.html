@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Brandings{% endblock %}
+{% block content %}
+<h1>Branding Packages</h1>
+
+{% if msg == "deleted" %}
+<div class="alert alert-success">✓ Branding package deleted</div>
+{% elif msg == "delete_default" %}
+<div class="alert alert-error">Cannot delete the Default branding package</div>
+{% elif msg == "invalid_name" %}
+<div class="alert alert-error">Invalid branding name</div>
+{% elif msg == "error" %}
+<div class="alert alert-error">Could not create branding package</div>
+{% endif %}
+
+<p style="font-size:0.88em;color:#666;margin-bottom:18px">
+  Branding packages contain named sets of screen overlay PNGs. Each project can select one branding package.
+  Missing screens fall back to the <strong>Default</strong> branding automatically.
+</p>
+
+<div class="card" style="padding:0;overflow:hidden">
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Custom Screens</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for b in brandings %}
+    <tr>
+      <td>
+        <strong>{{ b.name }}</strong>
+        {% if b.name == "Default" %}
+          <span class="badge badge-green" style="margin-left:6px">Default</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if b.name == "Default" %}
+          {{ b.count }} screens (base)
+        {% elif b.count > 0 %}
+          <span class="badge badge-green">{{ b.count }} overridden</span>
+        {% else %}
+          <span class="badge badge-gray">0 overridden</span>
+        {% endif %}
+      </td>
+      <td style="white-space:nowrap">
+        <a href="/ui/brandings/{{ b.name }}" class="btn btn-primary"
+           style="padding:5px 12px;font-size:0.82em;text-decoration:none;display:inline-block">Edit</a>
+        {% if b.name != "Default" %}
+        <form method="POST" action="/ui/brandings/{{ b.name }}/delete" style="display:inline;margin-left:4px"
+              onsubmit="return confirm('Delete branding package {{ b.name }}?')">
+          <button type="submit" class="btn btn-danger" style="padding:5px 10px;font-size:0.82em">🗑</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 style="margin-top:26px">Create New Branding Package</h2>
+<div class="card">
+  <form method="POST" action="/ui/brandings/create" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+    <div style="flex:1;min-width:180px">
+      <label style="font-size:0.82em;color:#555;display:block;margin-bottom:4px">Package name</label>
+      <input type="text" name="name" placeholder="e.g. MySummer24" required
+             style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:0.9em">
+    </div>
+    <button type="submit" class="btn btn-success">+ Create</button>
+  </form>
+  <p style="font-size:0.78em;color:#9ca3af;margin-top:8px">
+    Spaces and special characters are removed from the name. Only upload the screens you want to override — everything else falls back to Default.
+  </p>
+</div>
+{% endblock %}

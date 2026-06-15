@@ -20,8 +20,12 @@
     Click any image to download.
   </p>
   {% if photos %}
-  <button class="btn btn-secondary" style="margin-left:auto;font-size:0.82em;padding:5px 12px;color:#dc2626;border-color:#dc2626"
-          onclick="deleteAll(this)">🗑 Delete All</button>
+  <div style="display:flex;gap:8px;margin-left:auto">
+    <a href="/ui/photos/download" class="btn btn-secondary"
+       style="font-size:0.82em;padding:5px 12px;text-decoration:none;display:inline-block">⬇ Download All</a>
+    <button class="btn btn-secondary" style="font-size:0.82em;padding:5px 12px;color:#dc2626;border-color:#dc2626"
+            onclick="deleteAll(this)">🗑 Delete All</button>
+  </div>
   {% endif %}
 </div>
 
