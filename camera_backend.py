@@ -19,6 +19,12 @@ class GPhoto2Backend:
         self._preview_active = False
         self._preview_thread = None
         self._on_preview_frame = None
+        self._connected = False
+        self.on_disconnect = None  # callable() fired when consecutive errors declare a disconnect
+
+    @property
+    def is_connected(self):
+        return self._connected
 
     def setup(self, config):
         self._screen_w = config.screen_w
@@ -46,6 +52,7 @@ class GPhoto2Backend:
         except Exception as e:
             logging.warning(f"Could not set output=PC: {e}")
 
+        self._connected = True
         logging.debug("GPhoto2Backend: ready")
 
     def start_preview(self, on_frame_callback):
@@ -62,6 +69,7 @@ class GPhoto2Backend:
             self._preview_thread = None
 
     def _preview_loop(self):
+        consecutive_errors = 0
         while self._preview_active:
             try:
                 with self._lock:
@@ -73,8 +81,17 @@ class GPhoto2Backend:
                 img = self._apply_color_effect(img)
                 if self._on_preview_frame:
                     self._on_preview_frame(img)
+                consecutive_errors = 0
             except gp.GPhoto2Error as e:
-                logging.warning(f"Preview frame error: {e}")
+                consecutive_errors += 1
+                logging.warning(f"Preview frame error ({consecutive_errors}): {e}")
+                if consecutive_errors >= 5:
+                    logging.error("Camera lost — stopping preview and signaling disconnect")
+                    self._connected = False
+                    self._preview_active = False
+                    if self.on_disconnect:
+                        threading.Thread(target=self.on_disconnect, daemon=True).start()
+                    return
                 time.sleep(0.05)
 
     def capture(self, filename):
@@ -162,8 +179,21 @@ class GPhoto2Backend:
             logging.debug(f"get_battery_level failed: {e}")
             return None
 
+    def reconnect(self, config):
+        """Close current connection and re-run setup(). Raises on failure; caller should retry."""
+        self.stop_preview()
+        if self._camera:
+            try:
+                self._camera.exit()
+            except Exception:
+                pass
+            self._camera = None
+        self._connected = False
+        self.setup(config)
+
     def close(self):
         self.stop_preview()
+        self._connected = False
         if self._camera:
             try:
                 self._camera.exit()

@@ -62,9 +62,11 @@ class Photobooth:
         self.button1active = False
         self.button2active = False
 
+        self.camera = None
+        self.camera_ready = threading.Event()
+        self._camera_reconnect_event = threading.Event()
+
         self.display = DisplayManager(self.config.screen_w, self.config.screen_h)
-        self.setupCamera()
-        self.startpreview()
 
         self.photonumber = 1
 
@@ -76,16 +78,20 @@ class Photobooth:
         # find the USB Drive, if connected
         self.PhotoCopyPath = self.GetMountpoint()
 
-
         # load the Card Layout
         self.layoutParser = TemplateParser(self.config.templates_file_path)
         self.layout = self.layoutParser.readCardConfiguration()
-        # t1 = threading.Thread(target=self.on_enter_PowerOn, args=[])
-        # t1.start()
+
+        # Start webserver immediately — no camera required
         t2 = threading.Thread(target=self.start_webserver, args=[])
         t2.start()
+        # Camera setup in background; preview starts once ready
+        t_cam = threading.Thread(target=self._camera_init_thread, daemon=True)
+        t_cam.start()
         t3 = threading.Thread(target=self._battery_poll_loop, daemon=True)
         t3.start()
+        t_reconn = threading.Thread(target=self._camera_reconnect_loop, daemon=True)
+        t_reconn.start()
         self.on_enter_PowerOn()
 
 
@@ -110,6 +116,8 @@ class Photobooth:
         while True:
             time.sleep(POLL_INTERVAL)
             try:
+                if not self.camera:
+                    continue
                 level = self.camera.get_battery_level()
                 if level is None:
                     # Camera not ready yet — clear overlay if present
@@ -126,6 +134,48 @@ class Photobooth:
                     last_screen = screen
             except Exception as e:
                 logging.warning(f"Battery poll error: {e}")
+
+    def _camera_init_thread(self):
+        """Background thread: run initial camera setup then start preview."""
+        self.setupCamera()
+        self.camera.on_disconnect = self._on_camera_disconnect
+        self.camera_ready.set()
+        self.startpreview()
+
+    def _on_camera_disconnect(self):
+        """Callback fired by GPhoto2Backend when 5 consecutive preview errors occur."""
+        logging.warning("Camera disconnect detected")
+        self.camera_ready.clear()
+        self._camera_reconnect_event.set()
+
+    def _camera_reconnect_loop(self):
+        """Background thread: waits for disconnect events and reconnects the camera."""
+        while True:
+            self._camera_reconnect_event.wait()
+            self._camera_reconnect_event.clear()
+            logging.info("Starting camera reconnect")
+            overlay_id = self.display.show_message("Kamera getrennt\nBitte neu verbinden")
+            while True:
+                try:
+                    self.camera.reconnect(self.config)
+                    break
+                except Exception as e:
+                    logging.warning(f"Reconnect attempt failed ({e}), retrying in 5s")
+                    time.sleep(5)
+            self.remove_overlay(overlay_id)
+            try:
+                self.camera.apply_settings(
+                    iso=self.config.camera_iso,
+                    awb_mode=self.config.camera_awb_mode,
+                    exposure_mode=self.config.camera_exposure_mode,
+                    shutterspeed=self.config.camera_shutterspeed,
+                    aperture=self.config.camera_aperture,
+                )
+            except Exception as e:
+                logging.warning(f"Reconnect apply_settings: {e}")
+            self.camera_ready.set()
+            self.startpreview()
+            logging.info("Camera reconnected successfully")
 
     def _canon_usb_present(self):
         """Return True if any Canon USB device (vendor 0x04A9) is detected."""
@@ -222,20 +272,22 @@ class Photobooth:
         self.layoutParser.set_path(self.config.templates_file_path)
         self.layout = self.layoutParser.layout
         os.makedirs(self.config.photo_abs_file_path, exist_ok=True)
-        try:
-            self.camera.apply_settings(
-                iso=self.config.camera_iso,
-                awb_mode=self.config.camera_awb_mode,
-                exposure_mode=self.config.camera_exposure_mode,
-                shutterspeed=self.config.camera_shutterspeed,
-                aperture=self.config.camera_aperture,
-            )
-        except Exception as e:
-            logging.warning(f"switch_project apply_settings: {e}")
+        if self.camera and self.camera.is_connected:
+            try:
+                self.camera.apply_settings(
+                    iso=self.config.camera_iso,
+                    awb_mode=self.config.camera_awb_mode,
+                    exposure_mode=self.config.camera_exposure_mode,
+                    shutterspeed=self.config.camera_shutterspeed,
+                    aperture=self.config.camera_aperture,
+                )
+            except Exception as e:
+                logging.warning(f"switch_project apply_settings: {e}")
         threading.Thread(target=self.to_PowerOn, daemon=True).start()
 
     def setCameraColor(self, color):
-        self.camera.set_color_effect(color)
+        if self.camera:
+            self.camera.set_color_effect(color)
 
 
     # Button1 callback function. Actions depends on state of the Photobooth state machine
@@ -397,6 +449,7 @@ class Photobooth:
 
     def taking_photo(self, photo_number):
         logging.debug("Taking Photo")
+        self.camera_ready.wait()
         self.lastfilename = self.layout[self.current_Layout - 1].pictures[photo_number - 1].fileName
         self.stoppreview()  # release camera before capture to avoid gphoto2 lock conflict
         self.camera.capture(self.lastfilename)
@@ -467,6 +520,7 @@ class Photobooth:
     # countdown to zero and take pictures
     def on_enter_CountdownPhoto(self):
         logging.debug("now on_enter_CountdownPhoto")
+        self.camera_ready.wait()
 
         #set the pictures color
         self.setCameraColor(self.layout[self.current_Layout - 1].pictures[self.photonumber - 1].color)
@@ -710,19 +764,41 @@ class Photobooth:
 
     def on_enter_Restart(self):
         logging.debug("now on_enter_Restart")
+        self.camera_ready.clear()
         self.camera.close()
         time.sleep(1)
-        self.setupCamera()
+        while True:
+            try:
+                self.camera.reconnect(self.config)
+                break
+            except Exception as e:
+                logging.warning(f"Restart: reconnect failed ({e}), retrying in 5s")
+                time.sleep(5)
+        try:
+            self.camera.apply_settings(
+                iso=self.config.camera_iso,
+                awb_mode=self.config.camera_awb_mode,
+                exposure_mode=self.config.camera_exposure_mode,
+                shutterspeed=self.config.camera_shutterspeed,
+                aperture=self.config.camera_aperture,
+            )
+        except Exception as e:
+            logging.warning(f"Restart apply_settings: {e}")
+        self.camera_ready.set()
         self.startpreview()
         self.to_PowerOn()
 
     def startpreview(self):
         logging.debug("Start Camera preview")
+        if not (self.camera and self.camera.is_connected):
+            logging.warning("startpreview: camera not connected, skipping")
+            return
         self.camera.start_preview(self.display.update_preview)
 
     def stoppreview(self):
         logging.debug("Stop Camera Preview")
-        self.camera.stop_preview()
+        if self.camera:
+            self.camera.stop_preview()
 
     # create filename based on date and time
     def get_base_filename_for_images(self):

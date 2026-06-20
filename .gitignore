@@ -6,6 +6,7 @@ Photos/*
 uploads/*
 __pycache__/
 *.pyc
+.ssh
 
 # Virtualenvs / editor state
 venv/
@@ -35,3 +36,4 @@ Projects/*
 
 #Production data
 /Photos/
+sync_config.jsonc

@@ -258,14 +258,24 @@ def api_camera_apply():
 @app.route("/status", methods=["GET"])
 def api_status():
     state = "unknown"
+    camera_connected = False
     if app.photobooth:
         try:
             state = app.photobooth.state
         except Exception:
             pass
+        try:
+            camera_connected = bool(
+                hasattr(app.photobooth, 'camera') and
+                app.photobooth.camera and
+                app.photobooth.camera.is_connected
+            )
+        except Exception:
+            pass
     cfg = app.configParser.config if app.configParser else None
     return jsonify({
         "state": state,
+        "camera_connected": camera_connected,
         "photo_resolution": f"{cfg.photo_w}x{cfg.photo_h}" if cfg else "?",
         "screen_resolution": f"{cfg.screen_w}x{cfg.screen_h}" if cfg else "?",
         "print_enabled": cfg.printPicsEnable if cfg else False,
